@@ -5,7 +5,7 @@ fn main() {
 
     println!("Our target directory: {}", root);
 
-    let files = scanner::find_indicated_files(&root);
+    let files = scanner::scan_all(&root);
 
     println!("There are: {} files", files.len());
 
