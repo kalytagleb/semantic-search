@@ -3,7 +3,7 @@ mod scanner;
 fn main() {
     let root = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
 
-    println!("Our target directory: {}", root);
+    println!("Scanning: {}", root);
 
     let files = scanner::scan_all(&root);
 
