@@ -1,3 +1,4 @@
+mod extractor;
 mod scanner;
 
 fn main() {
@@ -10,6 +11,18 @@ fn main() {
     println!("There are: {} files", files.len());
 
     for file in &files {
-        println!(" {}", file.display());
+        match extractor::extract(file) {
+            Ok(extracted) => {
+                println!(
+                    "[OK] {} - {} characters, {} chunks",
+                    file.display(),
+                    extracted.content.len(),
+                    extracted.chunks.len()
+                );
+            }
+            Err(e) => {
+                println!("[ERR] {}: {}", file.display(), e);
+            }
+        }
     }
 }
