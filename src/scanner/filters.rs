@@ -1,38 +1,28 @@
 use std::path::Path;
 
-fn supported_extensions() -> Vec<String> {
-    vec![
-        // Text and documents
-        "txt".to_string(),
-        "md".to_string(),
-        "pdf".to_string(),
-        "docx".to_string(),
-        "html".to_string(),
-        // Code
-        "rs".to_string(),
-        "py".to_string(),
-        "js".to_string(),
-        "ts".to_string(),
-        "go".to_string(),
-        "cpp".to_string(),
-        "java".to_string(),
-        // Configs
-        "yaml".to_string(),
-        "json".to_string(),
-        "toml".to_string(),
-        "csv".to_string(),
-    ]
+pub enum FileType {
+    Text, // .txt .md .html
+    Code, // .rs .py .js
+    Data, // .json .yaml .csv .toml
+}
+
+pub fn get_file_type(path: &Path) -> Option<FileType> {
+    let extension = match path.extension() {
+        Some(ext) => ext.to_string_lossy().to_lowercase(),
+        None => return None,
+    };
+
+    match extension.as_str() {
+        "txt" | "md" | "html" => Some(FileType::Text),
+        "rs" | "py" | "js" | "ts" | "go" | "c" | "cpp" | "java" => Some(FileType::Code),
+        "json" | "yaml" | "toml" | "csv" => Some(FileType::Data),
+        _ => None,
+    }
 }
 
 // Defend Extractor from unsuitable formats
 pub fn is_indexable(path: &Path) -> bool {
-    let extension = match path.extension() {
-        Some(ext) => ext.to_string_lossy().to_lowercase(),
-        None => return false,
-    };
-
-    let extensions = supported_extensions();
-    extensions.contains(&extension.to_string())
+    get_file_type(path).is_some()
 }
 
 // Program doesn't accept files more than 50 MB
@@ -51,30 +41,51 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn accept_supported_formats() {
-        assert!(is_indexable(Path::new("main.rs")));
-        assert!(is_indexable(Path::new("main.md")));
-        assert!(is_indexable(Path::new("main.toml")));
-        assert!(is_indexable(Path::new("main.json")));
-        assert!(is_indexable(Path::new("main.py")));
-        assert!(is_indexable(Path::new("main.js")));
+    fn text_format_true() {
+        assert!(matches!(
+            get_file_type(Path::new("notes.md")),
+            Some(FileType::Text)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("notes.txt")),
+            Some(FileType::Text)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("notes.html")),
+            Some(FileType::Text)
+        ));
     }
 
     #[test]
-    fn unaccept_unsupported_formats() {
-        assert!(!is_indexable(Path::new("main.png")));
-        assert!(!is_indexable(Path::new("main.zip")));
-        assert!(!is_indexable(Path::new("main.jpg")));
-        assert!(!is_indexable(Path::new("main.exe")));
-        assert!(!is_indexable(Path::new("main.mp4")));
-        assert!(!is_indexable(Path::new("main.zov")));
+    fn code_format_true() {
+        assert!(matches!(
+            get_file_type(Path::new("main.rs")),
+            Some(FileType::Code)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("script.py")),
+            Some(FileType::Code)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("index.js")),
+            Some(FileType::Code)
+        ));
     }
 
     #[test]
-    fn file_without_extensions() {
-        assert!(!is_indexable(Path::new("Makefile")));
-        assert!(!is_indexable(Path::new("Dockerfile")));
-        assert!(!is_indexable(Path::new("README")));
+    fn data_format_true() {
+        assert!(matches!(
+            get_file_type(Path::new("config.toml")),
+            Some(FileType::Data)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("data.json")),
+            Some(FileType::Data)
+        ));
+        assert!(matches!(
+            get_file_type(Path::new("table.csv")),
+            Some(FileType::Data)
+        ));
     }
 
     #[test]
