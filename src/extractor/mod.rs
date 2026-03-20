@@ -5,7 +5,6 @@ use crate::scanner::filters;
 use std::path::Path;
 
 pub struct ExtractedText {
-    pub content: String,     // full text - for keyword search
     pub chunks: Vec<String>, // chunks - for vector index
 }
 
@@ -18,5 +17,5 @@ pub fn extract(path: &Path) -> Result<ExtractedText, String> {
     let content = text::read(path)?;
     let chunks = chunker::split(&content, &file_type);
 
-    Ok(ExtractedText { content, chunks })
+    Ok(ExtractedText { chunks })
 }

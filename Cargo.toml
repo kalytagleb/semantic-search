@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 walkdir = "2"
 text-splitter = "0.17"
+tantivy = "0.21"
+
+[dependencies.zstd-sys]
+version = "=2.0.9"
