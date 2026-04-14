@@ -16,7 +16,7 @@ impl IndexSchema {
         // TEXT - divide into words and build index (there is able to find)
         let path = builder.add_text_field("path", STORED);
         let title = builder.add_text_field("title", TEXT | STORED);
-        let body = builder.add_text_field("body", TEXT);
+        let body = builder.add_text_field("body", TEXT | STORED);
 
         IndexSchema {
             schema: builder.build(),
