@@ -20,7 +20,18 @@ pub fn scan_all(root: &str) -> Vec<PathBuf> {
 }
 
 fn is_ignored(path: &Path) -> bool {
-    let ignored = ["target", ".git", "node_modules", ".cache", "venv", "__pycache__", ".idea", ".vscode", "build", "dist"];
+    let ignored = [
+        "target",
+        ".git",
+        "node_modules",
+        ".cache",
+        "venv",
+        "__pycache__",
+        ".idea",
+        ".vscode",
+        "build",
+        "dist",
+    ];
 
     path.components().any(|component| {
         let name = component.as_os_str().to_string_lossy();
