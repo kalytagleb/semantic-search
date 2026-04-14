@@ -11,7 +11,7 @@ pub fn split(text: &str, file_type: &FileType) -> Vec<String> {
         // so chunk_size = 400 - is optimal
         FileType::Code => 300..=400,
 
-        // chunk_size = 1000 - in order to some abzaces would be together
+        // chunk_size = 1000 - keeps related paragraphs in the same chunk
         FileType::Text | FileType::Data => 800..=1000,
     };
 
