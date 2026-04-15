@@ -21,9 +21,9 @@ fn main() {
             vector: vec![4., 5., 6.],
         },
     ];
-    vector_db::save_db(&records, ".");
+    vector_db::save_db(&records, Path::new("vector_db.bin"));
 
-    let vectors_test = vector_db::load_db(".");
+    let vectors_test = vector_db::load_db(Path::new("vector_db.bin"));
     for myvec in vectors_test {
         println!("{:?}", myvec.chunk_text);
     }
