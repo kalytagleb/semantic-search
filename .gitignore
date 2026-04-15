@@ -1,2 +1,12 @@
-/target
+target/
+Cargo.lock
+
 .search-index/
+vectors.bin
+model_cache/
+.fastembed_cache/
+
+.DS_Store
+.idea/
+.vscode/
+*.swp

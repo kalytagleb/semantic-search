@@ -9,6 +9,8 @@ text-splitter = "0.17"
 tantivy = "0.21"
 ratatui = "0.26"
 crossterm = "0.27"
+fastembed = "5.13.2"
+anyhow = "1.0.102"
 
 [dependencies.zstd-sys]
 version = "=2.0.9"
