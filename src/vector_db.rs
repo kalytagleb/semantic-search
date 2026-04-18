@@ -1,7 +1,6 @@
-use std::fs;
-use serde::{Serialize, Deserialize};
-use bincode;
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use std::fs;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VectorRecord {
@@ -11,22 +10,19 @@ pub struct VectorRecord {
 }
 
 pub fn save_db(records: &[VectorRecord], path: &std::path::Path) -> anyhow::Result<()> {
-    let serialized = bincode::serialize(records)
-        .context("Failed to serialize vector records")?;
-    
-    fs::write(path, serialized)
-        .context("Failed to write vectors.bin to disk")?;
-        
+    let serialized = bincode::serialize(records).context("Failed to serialize vector records")?;
+
+    fs::write(path, serialized).context("Failed to write vectors.bin to disk")?;
+
     Ok(())
 }
 
 pub fn load_db(path: &std::path::Path) -> anyhow::Result<Vec<VectorRecord>> {
-    let serialized = fs::read(path)
-        .context("Failed to read vectors.bin from disk")?;
-        
-    let deserialized = bincode::deserialize(&serialized)
-        .context("Failed to deserialize vector records")?;
-        
+    let serialized = fs::read(path).context("Failed to read vectors.bin from disk")?;
+
+    let deserialized =
+        bincode::deserialize(&serialized).context("Failed to deserialize vector records")?;
+
     Ok(deserialized)
 }
 
@@ -43,13 +39,11 @@ mod tests {
     #[test]
     fn test_save_and_load_single_record() {
         let temp_path = create_temp_path("single_record");
-        let records = vec![
-            VectorRecord {
-                path: "test.txt".to_string(),
-                chunk_text: "Hello world".to_string(),
-                vector: vec![0.1, 0.2, 0.3],
-            }
-        ];
+        let records = vec![VectorRecord {
+            path: "test.txt".to_string(),
+            chunk_text: "Hello world".to_string(),
+            vector: vec![0.1, 0.2, 0.3],
+        }];
 
         // Save
         assert!(save_db(&records, &temp_path).is_ok());
@@ -86,7 +80,7 @@ mod tests {
 
         save_db(&records, &temp_path).expect("Failed to save");
         let loaded = load_db(&temp_path).expect("Failed to load");
-        
+
         assert_eq!(loaded.len(), 3);
         assert_eq!(loaded, records);
 
@@ -97,7 +91,7 @@ mod tests {
     fn test_load_nonexistent_file() {
         let temp_path = create_temp_path("nonexistent");
         let result = load_db(&temp_path);
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Failed to read"));
     }
@@ -118,17 +112,15 @@ mod tests {
     fn test_large_vectors() {
         let temp_path = create_temp_path("large_vectors");
         let large_vector = (0..384).map(|i| i as f32 / 384.0).collect();
-        let records = vec![
-            VectorRecord {
-                path: "large.txt".to_string(),
-                chunk_text: "Large vector test".to_string(),
-                vector: large_vector,
-            }
-        ];
+        let records = vec![VectorRecord {
+            path: "large.txt".to_string(),
+            chunk_text: "Large vector test".to_string(),
+            vector: large_vector,
+        }];
 
         save_db(&records, &temp_path).expect("Failed to save");
         let loaded = load_db(&temp_path).expect("Failed to load");
-        
+
         assert_eq!(loaded[0].vector.len(), 384);
         assert_eq!(loaded, records);
 

@@ -1,5 +1,5 @@
-use fastembed::{TextEmbedding, InitOptions};
 use anyhow::Context;
+use fastembed::{InitOptions, TextEmbedding};
 
 // structure to hold our AI model
 pub struct AiEngine {
@@ -12,16 +12,24 @@ impl AiEngine {
 
         let options = InitOptions::new(fastembed::EmbeddingModel::MultilingualE5Small);
         let model = fastembed::TextEmbedding::try_new(options)?;
-        return Ok(AiEngine { model });
+        Ok(AiEngine { model })
     }
 
     pub fn generate_embedding(&mut self, text: &str) -> Result<Vec<f32>, anyhow::Error> {
         let vec_embed = vec![text];
-        self.model.embed(vec_embed, None)?.get(0).cloned().ok_or_else(|| anyhow::anyhow!("Failure"))
+        self.model
+            .embed(vec_embed, None)?
+            .first()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Failure"))
     }
 
-    pub fn generate_embeddings_batch(&mut self, texts: Vec<&str>) -> Result<Vec<Vec<f32>>, anyhow::Error> {
-        self.model.embed(texts, None)
+    pub fn generate_embeddings_batch(
+        &mut self,
+        texts: Vec<&str>,
+    ) -> Result<Vec<Vec<f32>>, anyhow::Error> {
+        self.model
+            .embed(texts, None)
             .context("Failed to generate embeddings for batch")
     }
 }

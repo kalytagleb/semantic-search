@@ -1,10 +1,10 @@
-pub mod extractor;
-pub mod scanner;
 pub mod ai;
-pub mod vector_db;
-pub mod math;
-pub mod indexing;
-pub mod searching;
+pub mod extractor;
 pub mod index;
+pub mod indexing;
+pub mod math;
+pub mod scanner;
+pub mod searching;
+pub mod vector_db;
 
 pub use vector_db::VectorRecord;

@@ -1,13 +1,13 @@
 use std::env;
 
+mod ai;
 mod extractor;
 mod index;
-mod scanner;
-mod ai;
-mod vector_db;
-mod math;
 mod indexing;
+mod math;
+mod scanner;
 mod searching;
+mod vector_db;
 
 fn main() {
     if let Err(e) = run() {

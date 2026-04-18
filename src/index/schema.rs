@@ -8,6 +8,12 @@ pub struct IndexSchema {
     pub body: Field,
 }
 
+impl Default for IndexSchema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IndexSchema {
     pub fn new() -> IndexSchema {
         let mut builder = Schema::builder();

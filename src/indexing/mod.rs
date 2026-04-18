@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use crate::vector_db::VectorRecord;
 use crate::ai::AiEngine;
-use crate::{scanner, extractor};
+use crate::vector_db::VectorRecord;
+use crate::{extractor, scanner};
+use std::path::{Path, PathBuf};
 
 const BATCH_SIZE: usize = 16;
 const DB_PATH: &str = "vectors_db.bin";
@@ -31,13 +31,16 @@ pub fn run(folder_path: &str) -> anyhow::Result<Vec<VectorRecord>> {
     Ok(all_records)
 }
 
-fn process_files_in_batches(files: &[PathBuf], engine: &mut AiEngine) -> anyhow::Result<Vec<VectorRecord>> {
+fn process_files_in_batches(
+    files: &[PathBuf],
+    engine: &mut AiEngine,
+) -> anyhow::Result<Vec<VectorRecord>> {
     let mut all_records: Vec<VectorRecord> = Vec::new();
 
     for file_path in files {
         println!("Processing: {}", file_path.display());
 
-        let content = match extractor::text::read(&file_path) {
+        let content = match extractor::text::read(file_path) {
             Ok(c) => c,
             Err(e) => {
                 println!("  Error reading file: {}", e);
@@ -46,7 +49,7 @@ fn process_files_in_batches(files: &[PathBuf], engine: &mut AiEngine) -> anyhow:
         };
         println!("  Read {} bytes", content.len());
 
-        let file_type = match scanner::filters::get_file_type(&file_path) {
+        let file_type = match scanner::filters::get_file_type(file_path) {
             Some(ft) => ft,
             None => {
                 println!("  Error: unsupported file type");
@@ -57,7 +60,7 @@ fn process_files_in_batches(files: &[PathBuf], engine: &mut AiEngine) -> anyhow:
         let chunks = extractor::chunker::split(&content, &file_type);
         println!("  Split into {} chunks", chunks.len());
 
-        process_chunks_for_file(&mut all_records, engine, &file_path, chunks)?;
+        process_chunks_for_file(&mut all_records, engine, file_path, chunks)?;
     }
 
     Ok(all_records)
@@ -66,7 +69,7 @@ fn process_files_in_batches(files: &[PathBuf], engine: &mut AiEngine) -> anyhow:
 fn process_chunks_for_file(
     all_records: &mut Vec<VectorRecord>,
     engine: &mut AiEngine,
-    file_path: &PathBuf,
+    file_path: &Path,
     chunks: Vec<String>,
 ) -> anyhow::Result<()> {
     let mut batch: Vec<&str> = Vec::new();
@@ -99,7 +102,7 @@ fn process_batch(
     batch_metadata: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
     let vectors = engine.generate_embeddings_batch(batch)?;
-    
+
     let mut mutable_metadata = batch_metadata;
     for (vector, (path, text)) in vectors.into_iter().zip(mutable_metadata.drain(..)) {
         all_records.push(VectorRecord {

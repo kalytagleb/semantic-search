@@ -32,7 +32,10 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![1.0, 2.0, 3.0];
         let result = cosine_similarity(&a, &b);
-        assert!((result - 1.0).abs() < 1e-6, "Identical vectors should have similarity 1.0");
+        assert!(
+            (result - 1.0).abs() < 1e-6,
+            "Identical vectors should have similarity 1.0"
+        );
     }
 
     #[test]
@@ -40,7 +43,10 @@ mod tests {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![0.0, 1.0, 0.0];
         let result = cosine_similarity(&a, &b);
-        assert!(result.abs() < 1e-6, "Orthogonal vectors should have similarity 0.0");
+        assert!(
+            result.abs() < 1e-6,
+            "Orthogonal vectors should have similarity 0.0"
+        );
     }
 
     #[test]
@@ -48,7 +54,10 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![-1.0, -2.0, -3.0];
         let result = cosine_similarity(&a, &b);
-        assert!((result + 1.0).abs() < 1e-6, "Opposite vectors should have similarity -1.0");
+        assert!(
+            (result + 1.0).abs() < 1e-6,
+            "Opposite vectors should have similarity -1.0"
+        );
     }
 
     #[test]
@@ -64,7 +73,10 @@ mod tests {
         let a = vec![1.0, 2.0];
         let b = vec![1.0, 2.0, 3.0];
         let result = cosine_similarity(&a, &b);
-        assert_eq!(result, 0.0, "Vectors of different lengths should return 0.0");
+        assert_eq!(
+            result, 0.0,
+            "Vectors of different lengths should return 0.0"
+        );
     }
 
     #[test]
