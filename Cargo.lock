@@ -2411,6 +2411,7 @@ dependencies = [
  "crossterm",
  "fastembed",
  "ratatui",
+ "rayon",
  "serde",
  "tantivy",
  "text-splitter",
