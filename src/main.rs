@@ -100,11 +100,22 @@ fn main() {
 
     println!("Saving to database");
     println!("Total records to save: {}", all_records.len());
-    vector_db::save_db(&all_records, Path::new(DB_PATH));
-    println!("Saved to {}", DB_PATH);
+    match vector_db::save_db(&all_records, Path::new(DB_PATH)) {
+        Ok(()) => println!("Saved to {}", DB_PATH),
+        Err(e) => {
+            eprintln!("Error saving database: {}", e);
+            return;
+        }
+    }
 
     println!("Loading from database");
-    let loaded_records = vector_db::load_db(Path::new(DB_PATH));
+    let loaded_records = match vector_db::load_db(Path::new(DB_PATH)) {
+        Ok(records) => records,
+        Err(e) => {
+            eprintln!("Error loading database: {}", e);
+            return;
+        }
+    };
     
     for (i, record) in loaded_records.iter().enumerate().take(5) {
         println!("Record {}: path='{}', chunk_len={}, vector_dims={}", 
