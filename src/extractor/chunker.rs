@@ -8,14 +8,14 @@ pub fn split(text: &str, file_type: &FileType) -> Vec<String> {
 
     let (max_characters, overlap) = match file_type {
         // 600 characters + 150 overlap (25%)
-        FileType::Code => (600, 150),
-
-        FileType::Text | FileType::Data => (800, 200),
+        FileType::DataCode => (600, 150),
+        // Chunks are bigger in order to save context
+        FileType::Text => (800, 200),
     };
 
     let config_chunks = ChunkConfig::new(max_characters)
         .with_overlap(overlap)
-        .expect("Overlap must be less than chunk size");
+        .expect("Overlap error");
 
     let splitter = TextSplitter::new(config_chunks);
 
