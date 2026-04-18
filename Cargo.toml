@@ -7,6 +7,8 @@ edition = "2024"
 walkdir = "2"
 text-splitter = "0.17"
 tantivy = "0.21"
+ratatui = "0.26"
+crossterm = "0.27"
 
 [dependencies.zstd-sys]
 version = "=2.0.9"

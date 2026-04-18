@@ -31,6 +31,7 @@ fn is_ignored(path: &Path) -> bool {
         ".vscode",
         "build",
         "dist",
+        ".class",
     ];
 
     path.components().any(|component| {
