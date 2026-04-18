@@ -2,7 +2,8 @@ target/
 Cargo.lock
 
 .search-index/
-vectors.bin
+vectors_db.bin
+src/vector_db.bin
 model_cache/
 .fastembed_cache/
 

@@ -1,4 +1,4 @@
-use std::{path::Path, vec};
+use std::path::Path;
 
 use crate::vector_db::VectorRecord;
 
@@ -9,6 +9,7 @@ mod ai;
 mod vector_db;
 
 fn main() {
+
     let records = vec![
         vector_db::VectorRecord {
             path: "1".to_string(),
@@ -26,6 +27,92 @@ fn main() {
     let vectors_test = vector_db::load_db(Path::new("vector_db.bin"));
     for myvec in vectors_test {
         println!("{:?}", myvec.chunk_text);
+
+    const DB_PATH: &str = "vectors_db.bin";
+
+    println!("scanning files");
+    let files = scanner::scan_all("./my_test_folder");
+    println!("Found {} files", files.len());
+
+    if files.is_empty() {
+        println!("No files found. Exiting.");
+        return;
+    }
+
+    println!("\ninitializing AI Engine");
+    let mut engine = match ai::AiEngine::new() {
+        Ok(e) => {
+            println!("AI Engine loaded successfully");
+            e
+        }
+        Err(e) => {
+            println!("Failed to load AI Engine: {}", e);
+            return;
+        }
+    };
+
+    println!("processing files");
+    let mut all_records: Vec<VectorRecord> = Vec::new();
+
+    for file_path in files {
+        println!("Processing: {}", file_path.display());
+
+        // Read file content
+        let content = match extractor::text::read(&file_path) {
+            Ok(c) => c,
+            Err(e) => {
+                println!("  Error reading file: {}", e);
+                continue;
+            }
+        };
+        println!("  Read {} bytes", content.len());
+
+        // Get file type and split into chunks
+        let file_type = match scanner::filters::get_file_type(&file_path) {
+            Some(ft) => ft,
+            None => {
+                println!("  Error: unsupported file type");
+                continue;
+            }
+        };
+
+        let chunks = extractor::chunker::split(&content, &file_type);
+        println!("  Split into {} chunks", chunks.len());
+
+        // Generate embeddings for each chunk
+        for (chunk_idx, chunk) in chunks.iter().enumerate() {
+            match engine.generate_embedding(chunk) {
+                Ok(vector) => {
+                    let record = VectorRecord {
+                        path: file_path.to_string_lossy().to_string(),
+                        chunk_text: chunk.clone(),
+                        vector,
+                    };
+                    all_records.push(record);
+                    println!("    Chunk {}: embedded ({} dims)", chunk_idx + 1, all_records.last().unwrap().vector.len());
+                }
+                Err(e) => {
+                    println!("    Chunk {}: Error generating embedding: {}", chunk_idx + 1, e);
+                }
+            }
+        }
+    }
+
+    println!("Saving to database");
+    println!("Total records to save: {}", all_records.len());
+    vector_db::save_db(&all_records, Path::new(DB_PATH));
+    println!("Saved to {}", DB_PATH);
+
+    println!("Loading from database");
+    let loaded_records = vector_db::load_db(Path::new(DB_PATH));
+    
+    for (i, record) in loaded_records.iter().enumerate().take(5) {
+        println!("Record {}: path='{}', chunk_len={}, vector_dims={}", 
+            i + 1, 
+            record.path, 
+            record.chunk_text.len(),
+            record.vector.len()
+        );
     }
 
 

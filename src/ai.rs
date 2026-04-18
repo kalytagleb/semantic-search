@@ -1,4 +1,4 @@
-use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
+use fastembed::{TextEmbedding, InitOptions};
 
 // structure to hold our AI model
 pub struct AiEngine {
