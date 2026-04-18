@@ -53,6 +53,7 @@ fn main() {
 
     println!("processing files");
     let mut all_records: Vec<VectorRecord> = Vec::new();
+    const BATCH_SIZE: usize = 16;
 
     for file_path in files {
         println!("Processing: {}", file_path.display());
@@ -79,20 +80,51 @@ fn main() {
         let chunks = extractor::chunker::split(&content, &file_type);
         println!("  Split into {} chunks", chunks.len());
 
-        // Generate embeddings for each chunk
-        for (chunk_idx, chunk) in chunks.iter().enumerate() {
-            match engine.generate_embedding(chunk) {
-                Ok(vector) => {
-                    let record = VectorRecord {
-                        path: file_path.to_string_lossy().to_string(),
-                        chunk_text: chunk.clone(),
-                        vector,
-                    };
-                    all_records.push(record);
-                    println!("    Chunk {}: embedded ({} dims)", chunk_idx + 1, all_records.last().unwrap().vector.len());
+        // Process chunks in batches
+        let mut batch: Vec<&str> = Vec::new();
+        let mut batch_metadata: Vec<(String, String)> = Vec::new(); // (path, chunk_text)
+
+        for chunk in &chunks {
+            batch.push(chunk);
+            batch_metadata.push((file_path.to_string_lossy().to_string(), chunk.clone()));
+
+            if batch.len() == BATCH_SIZE {
+                // Process full batch
+                match engine.generate_embeddings_batch(batch.clone()) {
+                    Ok(vectors) => {
+                        for (vector, (path, text)) in vectors.into_iter().zip(batch_metadata.drain(..)) {
+                            all_records.push(VectorRecord {
+                                path,
+                                chunk_text: text,
+                                vector,
+                            });
+                        }
+                        println!("    Processed batch of {} chunks", BATCH_SIZE);
+                    }
+                    Err(e) => {
+                        println!("    Error processing batch: {}", e);
+                    }
+                }
+                batch.clear();
+            }
+        }
+
+        // Handle remaining chunks
+        if !batch.is_empty() {
+            match engine.generate_embeddings_batch(batch) {
+                Ok(vectors) => {
+                    let batch_size = vectors.len();
+                    for (vector, (path, text)) in vectors.into_iter().zip(batch_metadata.drain(..)) {
+                        all_records.push(VectorRecord {
+                            path,
+                            chunk_text: text,
+                            vector,
+                        });
+                    }
+                    println!("    Processed final batch of {} chunks", batch_size);
                 }
                 Err(e) => {
-                    println!("    Chunk {}: Error generating embedding: {}", chunk_idx + 1, e);
+                    println!("    Error processing final batch: {}", e);
                 }
             }
         }
