@@ -22,7 +22,10 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
-    let db_path = data_dir()?.join("vectors.db");
+    let data = data_dir()?;
+    let db_path = data.join("vectors.db");
+    let bm25_dir = data.join("bm25-index");
+
     let db = vector_db::VectorDb::open(&db_path)?;
 
     match args.get(1).map(|s| s.as_str()) {
@@ -38,10 +41,14 @@ fn run() -> anyhow::Result<()> {
                         ai::MODEL_ID
                     );
                     db.clear_chunks()?;
+                    // Remove old BM25 index so it's rebuilt from scratch
+                    if bm25_dir.exists() {
+                        std::fs::remove_dir_all(&bm25_dir)?;
+                    }
                 }
             }
 
-            indexing::run(scan_path, &db, &mut engine)?;
+            indexing::run(scan_path, &db, &mut engine, &bm25_dir)?;
             db.set_model_id(ai::MODEL_ID)?;
         }
 
@@ -50,7 +57,7 @@ fn run() -> anyhow::Result<()> {
                 .get(2)
                 .context("Usage: semantic-search search <query>")?;
             let mut engine = ai::AiEngine::new()?;
-            searching::run(query, &mut engine, &db)?;
+            searching::run(query, &mut engine, &db, &bm25_dir)?;
         }
 
         _ => {
@@ -64,6 +71,8 @@ fn run() -> anyhow::Result<()> {
             println!("  semantic-search index ~/Documents");
             println!("  semantic-search index /");
             println!("  semantic-search search \"snake game in python\"");
+            println!();
+            println!("Index stored at: {}", db_path.display());
         }
     }
 

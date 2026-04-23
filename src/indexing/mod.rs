@@ -1,11 +1,18 @@
 use crate::ai::AiEngine;
+use crate::index::IndexManager;
 use crate::vector_db::{VectorDb, VectorRecord};
 use crate::{extractor, scanner};
 use sha2::{Digest, Sha256};
+use std::path::Path;
 
 const BATCH_SIZE: usize = 16;
 
-pub fn run(folder_path: &str, db: &VectorDb, engine: &mut AiEngine) -> anyhow::Result<()> {
+pub fn run(
+    folder_path: &str,
+    db: &VectorDb,
+    engine: &mut AiEngine,
+    bm25_dir: &Path,
+) -> anyhow::Result<()> {
     println!("Scanning '{}'...", folder_path);
     let files = scanner::scan_all(folder_path);
     println!("Found {} files", files.len());
@@ -15,6 +22,7 @@ pub fn run(folder_path: &str, db: &VectorDb, engine: &mut AiEngine) -> anyhow::R
         return Ok(());
     }
 
+    let mut bm25 = IndexManager::new(bm25_dir)?;
     let mut indexed = 0usize;
     let mut skipped = 0usize;
 
@@ -55,11 +63,20 @@ pub fn run(folder_path: &str, db: &VectorDb, engine: &mut AiEngine) -> anyhow::R
             .to_string_lossy()
             .to_string();
 
+        // Remove stale data from both stores
         db.delete_file_chunks(&path_str)?;
+        bm25.delete_file(&path_str);
+
+        // Index into BM25 (original text chunks, no prefix)
+        bm25.add_chunks(&path_str, &file_name, &raw_chunks)?;
+
+        // Index into vector store (with passage prefix for better semantic quality)
         embed_and_store(engine, db, &path_str, &hash, &file_name, &raw_chunks)?;
 
         indexed += 1;
     }
+
+    bm25.commit()?;
 
     println!(
         "Done. Indexed: {}, Skipped (unchanged/unreadable): {}",
@@ -79,7 +96,7 @@ fn embed_and_store(
     raw_chunks: &[String],
 ) -> anyhow::Result<()> {
     for (batch_i, batch) in raw_chunks.chunks(BATCH_SIZE).enumerate() {
-        // embed with passage prefix + filename for better semantic quality
+        // Embed with passage prefix + filename for better semantic quality
         let to_embed: Vec<String> = batch
             .iter()
             .map(|c| format!("passage: File: {}.\n{}", file_name, c))
