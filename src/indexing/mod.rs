@@ -1,117 +1,108 @@
 use crate::ai::AiEngine;
-use crate::vector_db::VectorRecord;
+use crate::vector_db::{VectorDb, VectorRecord};
 use crate::{extractor, scanner};
-use std::path::{Path, PathBuf};
+use sha2::{Digest, Sha256};
 
 const BATCH_SIZE: usize = 16;
-const DB_PATH: &str = "vectors_db.bin";
 
-pub fn run(folder_path: &str) -> anyhow::Result<Vec<VectorRecord>> {
-    println!("scanning files");
+pub fn run(folder_path: &str, db: &VectorDb, engine: &mut AiEngine) -> anyhow::Result<()> {
+    println!("Scanning '{}'...", folder_path);
     let files = scanner::scan_all(folder_path);
     println!("Found {} files", files.len());
 
     if files.is_empty() {
-        println!("No files found. Exiting.");
-        return Ok(Vec::new());
+        println!("No files found.");
+        return Ok(());
     }
 
-    println!("\ninitializing AI Engine");
-    let mut engine = AiEngine::new()?;
-    println!("AI Engine loaded successfully");
+    let mut indexed = 0usize;
+    let mut skipped = 0usize;
 
-    println!("processing files");
-    let all_records = process_files_in_batches(&files, &mut engine)?;
-
-    println!("\nSaving to database");
-    println!("Total records to save: {}", all_records.len());
-    crate::vector_db::save_db(&all_records, Path::new(DB_PATH))?;
-    println!("Saved to {}", DB_PATH);
-
-    Ok(all_records)
-}
-
-fn process_files_in_batches(
-    files: &[PathBuf],
-    engine: &mut AiEngine,
-) -> anyhow::Result<Vec<VectorRecord>> {
-    let mut all_records: Vec<VectorRecord> = Vec::new();
-
-    for file_path in files {
-        println!("Processing: {}", file_path.display());
-
+    for file_path in &files {
         let content = match extractor::text::read(file_path) {
             Ok(c) => c,
-            Err(e) => {
-                println!("  Error reading file: {}", e);
+            Err(_) => {
+                skipped += 1;
                 continue;
             }
         };
-        println!("  Read {} bytes", content.len());
+
+        let hash = hash_content(&content);
+        let path_str = file_path.to_string_lossy().to_string();
+
+        if !db.file_needs_reindex(&path_str, &hash)? {
+            skipped += 1;
+            continue;
+        }
 
         let file_type = match scanner::filters::get_file_type(file_path) {
             Some(ft) => ft,
             None => {
-                println!("  Error: unsupported file type");
+                skipped += 1;
                 continue;
             }
         };
 
-        let chunks = extractor::chunker::split(&content, &file_type);
-        println!("  Split into {} chunks", chunks.len());
+        let raw_chunks = extractor::chunker::split(&content, &file_type);
+        if raw_chunks.is_empty() {
+            skipped += 1;
+            continue;
+        }
 
-        process_chunks_for_file(&mut all_records, engine, file_path, chunks)?;
+        let file_name = file_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        db.delete_file_chunks(&path_str)?;
+        embed_and_store(engine, db, &path_str, &hash, &file_name, &raw_chunks)?;
+
+        indexed += 1;
     }
 
-    Ok(all_records)
+    println!(
+        "Done. Indexed: {}, Skipped (unchanged/unreadable): {}",
+        indexed, skipped
+    );
+    println!("Total chunks in index: {}", db.chunk_count()?);
+
+    Ok(())
 }
 
-fn process_chunks_for_file(
-    all_records: &mut Vec<VectorRecord>,
+fn embed_and_store(
     engine: &mut AiEngine,
-    file_path: &Path,
-    chunks: Vec<String>,
+    db: &VectorDb,
+    path: &str,
+    hash: &str,
+    file_name: &str,
+    raw_chunks: &[String],
 ) -> anyhow::Result<()> {
-    let mut batch: Vec<&str> = Vec::new();
-    let mut batch_metadata: Vec<(String, String)> = Vec::new();
+    for (batch_i, batch) in raw_chunks.chunks(BATCH_SIZE).enumerate() {
+        // embed with passage prefix + filename for better semantic quality
+        let to_embed: Vec<String> = batch
+            .iter()
+            .map(|c| format!("passage: File: {}.\n{}", file_name, c))
+            .collect();
 
-    for chunk in &chunks {
-        batch.push(chunk);
-        batch_metadata.push((file_path.to_string_lossy().to_string(), chunk.clone()));
+        let texts: Vec<&str> = to_embed.iter().map(|s| s.as_str()).collect();
+        let vectors = engine.generate_embeddings_batch(texts)?;
 
-        if batch.len() == BATCH_SIZE {
-            process_batch(all_records, engine, batch, batch_metadata)?;
-            batch = Vec::new();
-            batch_metadata = Vec::new();
+        for (i, (raw_chunk, vector)) in batch.iter().zip(vectors.into_iter()).enumerate() {
+            db.insert_chunk(&VectorRecord {
+                path: path.to_string(),
+                content_hash: hash.to_string(),
+                chunk_index: batch_i * BATCH_SIZE + i,
+                chunk_text: raw_chunk.clone(),
+                vector,
+            })?;
         }
     }
-
-    if !batch.is_empty() {
-        let batch_size = batch.len();
-        process_batch(all_records, engine, batch, batch_metadata)?;
-        println!("    Processed final batch of {} chunks", batch_size);
-    }
-
     Ok(())
 }
 
-fn process_batch(
-    all_records: &mut Vec<VectorRecord>,
-    engine: &mut AiEngine,
-    batch: Vec<&str>,
-    batch_metadata: Vec<(String, String)>,
-) -> anyhow::Result<()> {
-    let vectors = engine.generate_embeddings_batch(batch)?;
-
-    let mut mutable_metadata = batch_metadata;
-    for (vector, (path, text)) in vectors.into_iter().zip(mutable_metadata.drain(..)) {
-        all_records.push(VectorRecord {
-            path,
-            chunk_text: text,
-            vector,
-        });
-    }
-    println!("    Processed batch of {} chunks", BATCH_SIZE);
-
-    Ok(())
+fn hash_content(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
 }

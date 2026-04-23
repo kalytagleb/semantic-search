@@ -1,7 +1,7 @@
 use crate::ai::AiEngine;
 use crate::math;
+use crate::vector_db::VectorDb;
 use rayon::prelude::*;
-use std::path::Path;
 
 struct Hit {
     path: String,
@@ -9,62 +9,43 @@ struct Hit {
     score: f32,
 }
 
-pub fn run(query: &str, engine: &mut AiEngine) -> anyhow::Result<()> {
-    let db_path = Path::new("vectors_db.bin");
+pub fn run(query: &str, engine: &mut AiEngine, db: &VectorDb) -> anyhow::Result<()> {
+    let records = db.load_all_vectors()?;
 
-    println!("\nLoading from database");
-    let loaded_records = crate::vector_db::load_db(db_path)?;
-
-    for (i, record) in loaded_records.iter().enumerate().take(5) {
-        println!(
-            "Record {}: path='{}', chunk_len={}, vector_dims={}",
-            i + 1,
-            record.path,
-            record.chunk_text.len(),
-            record.vector.len()
-        );
+    if records.is_empty() {
+        println!("Index is empty. Run 'index <path>' first.");
+        return Ok(());
     }
 
-    println!("\nSearching for: '{}'", query);
+    println!("Searching {} chunks for: '{}'", records.len(), query);
 
-    let query_embedding = engine.generate_embedding(query)?;
+    let query_vec = engine.generate_query_embedding(query)?;
 
-    let hits: Vec<Hit> = loaded_records
+    let mut hits: Vec<Hit> = records
         .par_iter()
         .map(|record| Hit {
             path: record.path.clone(),
             text: record.chunk_text.clone(),
-            score: math::cosine_similarity(&query_embedding, &record.vector),
+            score: math::cosine_similarity(&query_vec, &record.vector),
         })
         .collect();
 
-    let mut sorted_hits = hits;
-    sorted_hits.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
-    println!("\nTop 5 results:");
-    for (i, hit) in sorted_hits.iter().take(5).enumerate() {
+    println!("\nTop 10 results:");
+    for (i, hit) in hits.iter().take(10).enumerate() {
         println!("\n{}. Score: {:.4}", i + 1, hit.score);
         println!("   Path: {}", hit.path);
-
-        let preview = format_text_preview(&hit.text);
-        println!("   Text: {}", preview);
+        println!("   Text: {}", truncate_preview(&hit.text, 120));
     }
 
     Ok(())
 }
 
-fn format_text_preview(text: &str) -> String {
-    if text.len() > 100 {
-        let mut end = 100;
-        while !text.is_char_boundary(end) {
-            end -= 1;
-        }
-        format!("{}...", &text[..end])
-    } else {
-        text.to_string()
+fn truncate_preview(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
     }
+    let truncated: String = text.chars().take(max_chars).collect();
+    format!("{}...", truncated)
 }

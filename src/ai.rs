@@ -1,7 +1,8 @@
 use anyhow::Context;
 use fastembed::{InitOptions, TextEmbedding};
 
-// structure to hold our AI model
+pub const MODEL_ID: &str = "EmbeddingGemma300M";
+
 pub struct AiEngine {
     model: TextEmbedding,
 }
@@ -10,7 +11,7 @@ impl AiEngine {
     pub fn new() -> Result<Self, anyhow::Error> {
         println!("Loading AI model, this may take a moment on first run.");
 
-        let options = InitOptions::new(fastembed::EmbeddingModel::MultilingualE5Small);
+        let options = InitOptions::new(fastembed::EmbeddingModel::EmbeddingGemma300M);
         let model = fastembed::TextEmbedding::try_new(options)?;
         Ok(AiEngine { model })
     }
@@ -22,6 +23,11 @@ impl AiEngine {
             .first()
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("Failure"))
+    }
+
+    pub fn generate_query_embedding(&mut self, user_query: &str) -> Result<Vec<f32>, anyhow::Error> {
+        let prompt = format!("query: {}", user_query);
+        self.generate_embedding(&prompt)
     }
 
     pub fn generate_embeddings_batch(

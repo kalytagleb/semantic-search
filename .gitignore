@@ -10,3 +10,5 @@ model_cache/
 .idea/
 .vscode/
 *.swp
+
+my_test_folder/

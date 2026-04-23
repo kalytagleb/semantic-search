@@ -1,5 +1,8 @@
 use std::env;
 
+use anyhow::Context;
+use directories::ProjectDirs;
+
 mod ai;
 mod extractor;
 mod index;
@@ -12,18 +15,63 @@ mod vector_db;
 fn main() {
     if let Err(e) = run() {
         eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
 }
 
 fn run() -> anyhow::Result<()> {
-    let mut engine = ai::AiEngine::new()?;
-    println!("AI Engine loaded successfully");
+    let args: Vec<String> = env::args().collect();
 
-    indexing::run("./my_test_folder")?;
+    let db_path = data_dir()?.join("vectors.db");
+    let db = vector_db::VectorDb::open(&db_path)?;
 
-    if let Some(query) = env::args().nth(1) {
-        searching::run(&query, &mut engine)?;
+    match args.get(1).map(|s| s.as_str()) {
+        Some("index") => {
+            let scan_path = args.get(2).map(|s| s.as_str()).unwrap_or("/");
+            let mut engine = ai::AiEngine::new()?;
+
+            if let Some(stored_model) = db.get_model_id()? {
+                if stored_model != ai::MODEL_ID {
+                    println!(
+                        "Model changed ('{}' → '{}'). Clearing old index...",
+                        stored_model,
+                        ai::MODEL_ID
+                    );
+                    db.clear_chunks()?;
+                }
+            }
+
+            indexing::run(scan_path, &db, &mut engine)?;
+            db.set_model_id(ai::MODEL_ID)?;
+        }
+
+        Some("search") => {
+            let query = args
+                .get(2)
+                .context("Usage: semantic-search search <query>")?;
+            let mut engine = ai::AiEngine::new()?;
+            searching::run(query, &mut engine, &db)?;
+        }
+
+        _ => {
+            println!("Local Semantic Search Engine");
+            println!();
+            println!("Usage:");
+            println!("  semantic-search index [path]    index files (default: /)");
+            println!("  semantic-search search <query>  search the index");
+            println!();
+            println!("Examples:");
+            println!("  semantic-search index ~/Documents");
+            println!("  semantic-search index /");
+            println!("  semantic-search search \"snake game in python\"");
+        }
     }
 
     Ok(())
+}
+
+fn data_dir() -> anyhow::Result<std::path::PathBuf> {
+    ProjectDirs::from("", "", "semantic-search")
+        .map(|dirs| dirs.data_dir().to_path_buf())
+        .context("Could not determine user data directory")
 }

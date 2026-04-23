@@ -6,5 +6,3 @@ pub mod math;
 pub mod scanner;
 pub mod searching;
 pub mod vector_db;
-
-pub use vector_db::VectorRecord;
