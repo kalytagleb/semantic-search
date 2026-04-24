@@ -165,8 +165,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn temp_db() -> (VectorDb, PathBuf) {
-        let path = std::env::temp_dir().join("test_semantic_search_vectors.db");
+    fn temp_db(name: &str) -> (VectorDb, PathBuf) {
+        let path = std::env::temp_dir().join(format!("test_semsearch_{}.db", name));
         if path.exists() {
             std::fs::remove_file(&path).ok();
         }
@@ -186,14 +186,14 @@ mod tests {
 
     #[test]
     fn test_open_creates_schema() {
-        let (db, path) = temp_db();
+        let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
         assert_eq!(db.chunk_count().unwrap(), 0);
         std::fs::remove_file(path).ok();
     }
 
     #[test]
     fn test_insert_and_load() {
-        let (db, path) = temp_db();
+        let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
         db.insert_chunk(&make_record("file.txt", 0, "hello world")).unwrap();
         db.insert_chunk(&make_record("file.txt", 1, "привет мир")).unwrap();
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_incremental_indexing_skips_unchanged() {
-        let (db, path) = temp_db();
+        let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
         db.insert_chunk(&make_record("notes.md", 0, "some content")).unwrap();
 
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_model_id_stored_and_retrieved() {
-        let (db, path) = temp_db();
+        let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
         assert!(db.get_model_id().unwrap().is_none());
         db.set_model_id("EmbeddingGemma300M").unwrap();
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_large_vector_round_trip() {
-        let (db, path) = temp_db();
+        let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
         let big_vector: Vec<f32> = (0..384).map(|i| i as f32 / 384.0).collect();
         let mut record = make_record("large.bin", 0, "test");
