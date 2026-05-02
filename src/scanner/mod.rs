@@ -42,8 +42,8 @@ fn is_ignored(path: &Path) -> bool {
         if ignored_names.contains(&name.as_ref()) {
             return true;
         }
-        // Skip hidden files and folders (starting with .)
-        if name.starts_with('.') {
+        // Skip hidden files and folders (starting with . but not . or ..)
+        if name.starts_with('.') && name != "." && name != ".." {
             return true;
         }
         false
