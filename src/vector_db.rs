@@ -49,11 +49,11 @@ impl VectorDb {
     }
 
     pub fn get_model_id(&self) -> Result<Option<String>> {
-        let result = self.conn.query_row(
-            "SELECT value FROM meta WHERE key = 'model_id'",
-            [],
-            |row| row.get(0),
-        );
+        let result =
+            self.conn
+                .query_row("SELECT value FROM meta WHERE key = 'model_id'", [], |row| {
+                    row.get(0)
+                });
         match result {
             Ok(v) => Ok(Some(v)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -119,9 +119,7 @@ impl VectorDb {
     pub fn load_all_vectors(&self) -> Result<Vec<VectorRecord>> {
         let mut stmt = self
             .conn
-            .prepare(
-                "SELECT path, content_hash, chunk_index, chunk_text, vector FROM chunks",
-            )
+            .prepare("SELECT path, content_hash, chunk_index, chunk_text, vector FROM chunks")
             .context("Failed to prepare query")?;
 
         let records: Vec<VectorRecord> = stmt
@@ -195,8 +193,10 @@ mod tests {
     fn test_insert_and_load() {
         let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
-        db.insert_chunk(&make_record("file.txt", 0, "hello world")).unwrap();
-        db.insert_chunk(&make_record("file.txt", 1, "привет мир")).unwrap();
+        db.insert_chunk(&make_record("file.txt", 0, "hello world"))
+            .unwrap();
+        db.insert_chunk(&make_record("file.txt", 1, "привет мир"))
+            .unwrap();
 
         let records = db.load_all_vectors().unwrap();
         assert_eq!(records.len(), 2);
@@ -209,7 +209,8 @@ mod tests {
     fn test_incremental_indexing_skips_unchanged() {
         let (db, path) = temp_db(concat!(module_path!(), "::", line!()));
 
-        db.insert_chunk(&make_record("notes.md", 0, "some content")).unwrap();
+        db.insert_chunk(&make_record("notes.md", 0, "some content"))
+            .unwrap();
 
         assert!(!db.file_needs_reindex("notes.md", "abc123").unwrap());
         assert!(db.file_needs_reindex("notes.md", "different_hash").unwrap());

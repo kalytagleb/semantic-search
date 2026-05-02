@@ -1,4 +1,4 @@
-use tantivy::schema::{Field, Schema, STORED, STRING, TEXT};
+use tantivy::schema::{Field, STORED, STRING, Schema, TEXT};
 
 pub struct IndexSchema {
     pub schema: Schema,

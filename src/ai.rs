@@ -25,7 +25,10 @@ impl AiEngine {
             .ok_or_else(|| anyhow::anyhow!("Failure"))
     }
 
-    pub fn generate_query_embedding(&mut self, user_query: &str) -> Result<Vec<f32>, anyhow::Error> {
+    pub fn generate_query_embedding(
+        &mut self,
+        user_query: &str,
+    ) -> Result<Vec<f32>, anyhow::Error> {
         let prompt = format!("query: {}", user_query);
         self.generate_embedding(&prompt)
     }

@@ -36,12 +36,7 @@ impl IndexManager {
         Ok(IndexManager { schema, writer })
     }
 
-    pub fn add_chunks(
-        &mut self,
-        path: &str,
-        title: &str,
-        chunks: &[String],
-    ) -> anyhow::Result<()> {
+    pub fn add_chunks(&mut self, path: &str, title: &str, chunks: &[String]) -> anyhow::Result<()> {
         for chunk in chunks {
             self.writer.add_document(doc!(
                 self.schema.path  => path,
@@ -85,8 +80,7 @@ pub fn search_bm25(
         .try_into()?;
     let searcher = reader.searcher();
 
-    let query_parser =
-        QueryParser::for_index(&index, vec![schema_def.title, schema_def.body]);
+    let query_parser = QueryParser::for_index(&index, vec![schema_def.title, schema_def.body]);
 
     let query = match query_parser.parse_query(query_text) {
         Ok(q) => q,
@@ -126,7 +120,11 @@ pub fn search_bm25(
         .map(|(path, (title, score))| SearchResult { path, title, score })
         .collect();
 
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(limit);
 
     Ok(results)
