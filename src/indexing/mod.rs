@@ -105,7 +105,7 @@ fn embed_and_store(
         let texts: Vec<&str> = to_embed.iter().map(|s| s.as_str()).collect();
         let vectors = engine.generate_embeddings_batch(texts)?;
 
-        for (i, (raw_chunk, vector)) in batch.iter().zip(vectors.into_iter()).enumerate() {
+        for (i, (raw_chunk, vector)) in batch.iter().zip(vectors).enumerate() {
             db.insert_chunk(&VectorRecord {
                 path: path.to_string(),
                 content_hash: hash.to_string(),
