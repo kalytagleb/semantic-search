@@ -1,57 +1,86 @@
-use std::path::Path;
+use std::env;
 
+use anyhow::Context;
+use directories::ProjectDirs;
+
+mod ai;
 mod extractor;
 mod index;
+mod indexing;
+mod math;
 mod scanner;
+mod searching;
+mod vector_db;
 
 fn main() {
-    let index_dir = Path::new(".search-index");
-
-    let mut manager = match index::IndexManager::new(index_dir) {
-        Ok(m) => m,
-        Err(e) => {
-            println!("Error: {}", e);
-            return;
-        }
-    };
-
-    let root = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
-
-    println!("Scanning: {}", root);
-
-    let files = scanner::scan_all(&root);
-
-    println!("There are: {} files", files.len());
-
-    let mut indexed = 0;
-    for file in &files {
-        match manager.add_file(file) {
-            Ok(()) => indexed += 1,
-            Err(e) => println!("[Skip] {}: {}", file.display(), e),
-        }
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
+}
 
-    if let Err(e) = manager.commit() {
-        println!("Commit error: {}", e);
-        return;
-    }
+fn run() -> anyhow::Result<()> {
+    let args: Vec<String> = env::args().collect();
 
-    println!("Indexed: {} files\n", indexed);
+    let data = data_dir()?;
+    let db_path = data.join("vectors.db");
+    let bm25_dir = data.join("bm25-index");
 
-    let query = std::env::args().nth(2).unwrap_or_else(|| "crc".to_string());
+    let db = vector_db::VectorDb::open(&db_path)?;
 
-    println!("Search: '{}'\n", query);
+    match args.get(1).map(|s| s.as_str()) {
+        Some("index") => {
+            let scan_path = args.get(2).map(|s| s.as_str()).unwrap_or("/");
+            let mut engine = ai::AiEngine::new()?;
 
-    match manager.search(&query, 20) {
-        Ok(results) => {
-            if results.is_empty() {
-                println!("Nothing found.");
-            } else {
-                for r in results {
-                    println!("[{:.2}] {} - {}", r.score, r.title, r.path);
+            if let Some(stored_model) = db.get_model_id()? {
+                if stored_model != ai::MODEL_ID {
+                    println!(
+                        "Model changed ('{}' → '{}'). Clearing old index...",
+                        stored_model,
+                        ai::MODEL_ID
+                    );
+                    db.clear_chunks()?;
+                    // Remove old BM25 index so it's rebuilt from scratch
+                    if bm25_dir.exists() {
+                        std::fs::remove_dir_all(&bm25_dir)?;
+                    }
                 }
             }
+
+            indexing::run(scan_path, &db, &mut engine, &bm25_dir)?;
+            db.set_model_id(ai::MODEL_ID)?;
         }
-        Err(e) => println!("Error of search: {}", e),
+
+        Some("search") => {
+            let query = args
+                .get(2)
+                .context("Usage: semantic-search search <query>")?;
+            let mut engine = ai::AiEngine::new()?;
+            searching::run(query, &mut engine, &db, &bm25_dir)?;
+        }
+
+        _ => {
+            println!("Local Semantic Search Engine");
+            println!();
+            println!("Usage:");
+            println!("  semantic-search index [path]    index files (default: /)");
+            println!("  semantic-search search <query>  search the index");
+            println!();
+            println!("Examples:");
+            println!("  semantic-search index ~/Documents");
+            println!("  semantic-search index /");
+            println!("  semantic-search search \"snake game in python\"");
+            println!();
+            println!("Index stored at: {}", db_path.display());
+        }
     }
+
+    Ok(())
+}
+
+fn data_dir() -> anyhow::Result<std::path::PathBuf> {
+    ProjectDirs::from("", "", "semantic-search")
+        .map(|dirs| dirs.data_dir().to_path_buf())
+        .context("Could not determine user data directory")
 }

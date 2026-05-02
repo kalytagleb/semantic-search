@@ -1,2 +1,14 @@
-/target
+target/
+
 .search-index/
+vectors_db.bin
+src/vector_db.bin
+model_cache/
+.fastembed_cache/
+
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+my_test_folder/

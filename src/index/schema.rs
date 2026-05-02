@@ -1,6 +1,5 @@
-use tantivy::schema::{Field, STORED, Schema, TEXT};
+use tantivy::schema::{Field, Schema, STORED, STRING, TEXT};
 
-// Fields of index
 pub struct IndexSchema {
     pub schema: Schema,
     pub path: Field,
@@ -8,13 +7,18 @@ pub struct IndexSchema {
     pub body: Field,
 }
 
+impl Default for IndexSchema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IndexSchema {
     pub fn new() -> IndexSchema {
         let mut builder = Schema::builder();
 
-        // STORED - save value. Only save, there should not find by it
-        // TEXT - divide into words and build index (there is able to find)
-        let path = builder.add_text_field("path", STORED);
+        // STRING = indexed but not tokenized (exact match, needed for deletion by path)
+        let path = builder.add_text_field("path", STRING | STORED);
         let title = builder.add_text_field("title", TEXT | STORED);
         let body = builder.add_text_field("body", TEXT | STORED);
 

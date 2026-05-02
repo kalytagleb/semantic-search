@@ -20,22 +20,33 @@ pub fn scan_all(root: &str) -> Vec<PathBuf> {
 }
 
 fn is_ignored(path: &Path) -> bool {
-    let ignored = [
+    // System virtual filesystems — scanning these hangs or causes errors
+    let system_roots = ["/proc", "/sys", "/dev", "/run", "/boot", "/tmp"];
+    let path_str = path.to_string_lossy();
+    if system_roots.iter().any(|r| path_str.starts_with(r)) {
+        return true;
+    }
+
+    let ignored_names = [
         "target",
-        ".git",
         "node_modules",
-        ".cache",
         "venv",
         "__pycache__",
-        ".idea",
-        ".vscode",
         "build",
         "dist",
     ];
 
     path.components().any(|component| {
         let name = component.as_os_str().to_string_lossy();
-        ignored.contains(&name.as_ref())
+        // Skip known noisy dirs
+        if ignored_names.contains(&name.as_ref()) {
+            return true;
+        }
+        // Skip hidden files and folders (starting with .)
+        if name.starts_with('.') {
+            return true;
+        }
+        false
     })
 }
 
@@ -46,13 +57,17 @@ mod tests {
     #[test]
     fn ignored_folder_ignores() {
         assert!(is_ignored(Path::new("target/debug/build/file.json")));
-        assert!(is_ignored(Path::new(".git/config")));
         assert!(is_ignored(Path::new("node_modules/main.js")));
+        assert!(is_ignored(Path::new("/proc/cpuinfo")));
+        assert!(is_ignored(Path::new("/sys/kernel/mm")));
+        assert!(is_ignored(Path::new("some/.hidden_folder/file.txt")));
+        assert!(is_ignored(Path::new(".hidden_file.txt")));
     }
 
     #[test]
     fn usual_folders_dont_ignore() {
         assert!(!is_ignored(Path::new("src/main.rs")));
         assert!(!is_ignored(Path::new("src/scanner/mod.rs")));
+        assert!(!is_ignored(Path::new("/home/user/Documents/report.pdf")));
     }
 }

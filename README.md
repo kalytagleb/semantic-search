@@ -1,55 +1,78 @@
-We should build console app (TUI) in Rust, which index all files on computer and allow us to find it by essential language (english, russian, etc.). 
-For example, you input: "article about memory management" - it finds all files, even if file name does not contain that words.
-How doest it should look in practice? 
-# First launch
-$ semantic-search index ~/Documents
-    .. File scanning
-    Find: 2300 files with indicated extensions
-    Indexed: <progress-bar> 450/2300
-    Remaining: ~23 minutes
-# Search
-$ semantic-search search "memory management without Garbage Collector"
-     1) ~/Documents/rust_book.md
-         "Ownership allows us manage memory"
-     2) ~/Documents/system_programming.pdf
-         "...In contrast, in Java there use Garbage Collector"
-# Interactive mode
-$ semantic-search tui
+# Semantic Search Engine
 
-Component 1: Scanner
-It should go inside all file system, beginning from indicated folder. It returns a list of files, which we should index. It follows by the changes with file watcher. 
-Supported extension: "txt" | "md" | "pdf" | "rs" | "py" | "js" | "ts" | "go" | "c" | "cpp" | "java" |"yaml" | "json" | "toml" | "csv" | "docx" | "html"
-This component only finds and follows.
+A local semantic search tool that finds files by meaning, not just keywords. Built in Rust.
 
-Component 2: Extractor
-As argument it gets path to file. It returns text from files. 
-# Input: ~/Documents/rust_book.md
-# Output: content: String - all text in file
-          chunks: Vec<String> - text divided into chunks ~200 words
-          metadata: Metadata
-Why should we use broke all on chunks? 
-For example, there are file on 100 pages. If we create 1 embedding for all file - loses accuracy. We should divide it on chunks a create embedding for every chunks. 
-This component only read file and return text.
+**Example:** you type `"article about memory management"` — it finds `rust_book.md` even if those exact words aren't in the filename.
 
-Component 3: Indexer
-It receives text from Extractor. It builds two indexes parallely:
-Inverted index - for search by key words (fast, accurate)
-Vector index - for semantic search (clever, understand sense)
-It should save data in Storage (HDD)
-    Inverted index
-        Word -> file list, where it is
-        There use algorithm BM25.
-    Vector Index
-        Every chunk -> embedding (vector from 384 numbers)
+## How it works
 
-        Model: I don't know (you can write your recommendations)
+Two search engines run in parallel and their results are merged:
+- **Semantic (vector)** — understands meaning via an embedding model (Gemma 300M)
+- **Keyword (BM25)** — fast exact word matching via Tantivy
 
-Component 4: Searcher
-It accepts text query. Find in both indexes. Join results. 
-Input: text query
-Output: Vec<SearchResult> - list of result in the descending order (depends from relevancy)
+Results are ranked by combining both scores using Reciprocal Rank Fusion.
 
-Component 5: Storage
-All indexes should save in reboot.
+## Build
 
-Componet 6: TUI
+```bash
+cargo build --release
+```
+
+On first run the embedding model (~300 MB) downloads automatically and gets cached locally.
+
+## Usage
+
+### Index files
+
+```bash
+# Index a specific folder
+cargo run -- index ~/Documents
+
+# Index everything (takes a while on first run, fast on repeat)
+cargo run -- index /
+
+# Index current directory
+cargo run -- index .
+```
+
+Re-indexing is incremental — files that haven't changed are skipped automatically.
+
+### Search
+
+```bash
+cargo run -- search "your query here"
+```
+
+Returns top 10 results with file path and a short text preview.
+
+## Writing good queries
+
+Write queries in **natural language** — describe what you're looking for, not just keywords.
+
+| Query | What it finds |
+|---|---|
+| `"snake game python"` | Python script implementing snake |
+| `"how to handle errors in rust"` | Rust files about error handling |
+| `"university lecture notes math"` | Notes, PDFs with math content |
+| `"config file for database connection"` | YAML/TOML configs with DB settings |
+| `"flying bird avoid obstacles"` | Flappy Bird style game code |
+
+**Tips:**
+- Longer, descriptive queries work better than single words
+- Mix content description with file type: `"python script that sorts a list"`
+- Both English and Russian queries work
+
+## Index location
+
+The index is stored at `~/.local/share/semantic-search/` (Linux) and does not affect your files in any way.
+
+## Architecture
+
+```
+Scanner   →  finds files, skips binaries and system dirs
+Extractor →  reads text, splits into ~600 char chunks
+AI Engine →  generates embedding vector per chunk (Gemma 300M)
+Vector DB →  stores vectors in SQLite, supports incremental updates
+Tantivy   →  BM25 full-text index
+Searcher  →  queries both indexes, merges with RRF, returns top 10
+```

@@ -7,6 +7,14 @@ edition = "2024"
 walkdir = "2"
 text-splitter = "0.17"
 tantivy = "0.21"
+ratatui = "0.26"
+crossterm = "0.27"
+fastembed = "5.13.2"
+anyhow = "1.0.102"
+rusqlite = { version = "0.31", features = ["bundled"] }
+sha2 = "0.10"
+directories = "5"
+rayon = "1.7"
 
 [dependencies.zstd-sys]
 version = "=2.0.9"
