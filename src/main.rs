@@ -33,18 +33,17 @@ fn run() -> anyhow::Result<()> {
             let scan_path = args.get(2).map(|s| s.as_str()).unwrap_or("/");
             let mut engine = ai::AiEngine::new()?;
 
-            if let Some(stored_model) = db.get_model_id()? {
-                if stored_model != ai::MODEL_ID {
-                    println!(
-                        "Model changed ('{}' → '{}'). Clearing old index...",
-                        stored_model,
-                        ai::MODEL_ID
-                    );
-                    db.clear_chunks()?;
-                    // Remove old BM25 index so it's rebuilt from scratch
-                    if bm25_dir.exists() {
-                        std::fs::remove_dir_all(&bm25_dir)?;
-                    }
+            if let Some(stored_model) = db.get_model_id()?
+                && stored_model != ai::MODEL_ID
+            {
+                println!(
+                    "Model changed ('{}' → '{}'). Clearing old index...",
+                    stored_model,
+                    ai::MODEL_ID
+                );
+                db.clear_chunks()?;
+                if bm25_dir.exists() {
+                    std::fs::remove_dir_all(&bm25_dir)?;
                 }
             }
 

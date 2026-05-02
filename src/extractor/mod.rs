@@ -4,10 +4,12 @@ pub mod text;
 use crate::scanner::filters;
 use std::path::Path;
 
+#[allow(dead_code)]
 pub struct ExtractedText {
     pub chunks: Vec<String>, // chunks - for vector index
 }
 
+#[allow(dead_code)]
 pub fn extract(path: &Path) -> Result<ExtractedText, String> {
     let file_type = match filters::get_file_type(path) {
         Some(ft) => ft,
