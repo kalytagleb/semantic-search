@@ -59,17 +59,29 @@ fn run() -> anyhow::Result<()> {
             searching::run(query, &mut engine, &db, &bm25_dir)?;
         }
 
+        Some("clean") => {
+            let data = data_dir()?;
+            if data.exists() {
+                std::fs::remove_dir_all(data)?;
+                println!("Index cleared.");
+            } else {
+                println!("No index found to clear.");
+            }
+        }
+
         _ => {
             println!("Local Semantic Search Engine");
             println!();
             println!("Usage:");
             println!("  semantic-search index [path]    index files (default: /)");
             println!("  semantic-search search <query>  search the index");
+            println!("  semantic-search clean           clear the index");
             println!();
             println!("Examples:");
             println!("  semantic-search index ~/Documents");
             println!("  semantic-search index /");
             println!("  semantic-search search \"snake game in python\"");
+            println!("  semantic-search clean");
             println!();
             println!("Index stored at: {}", db_path.display());
         }
