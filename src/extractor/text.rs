@@ -2,7 +2,8 @@ use std::fs;
 use std::path::Path;
 
 pub fn read(path: &Path) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 #[cfg(test)]
