@@ -10,7 +10,7 @@ pub fn split(text: &str, file_type: &FileType) -> Vec<String> {
         // 600 characters + 150 overlap (25%)
         FileType::DataCode => (600, 150),
         // Chunks are bigger in order to save context
-        FileType::Text => (800, 200),
+        FileType::Text | FileType::Doc => (800, 200),
     };
 
     let config_chunks = ChunkConfig::new(max_characters)
