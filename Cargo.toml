@@ -15,6 +15,8 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 sha2 = "0.10"
 directories = "5"
 rayon = "1.7"
+pdf-extract = "0.7"
+docx-rs = "0.4"
 
 [dependencies.zstd-sys]
 version = "=2.0.9"
