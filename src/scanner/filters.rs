@@ -3,22 +3,28 @@ use std::{fs::File, io::Read, path::Path};
 pub enum FileType {
     Text,     // .txt .md .html, usual texts, README
     DataCode, // code (js, py) and (json, yaml)
+    Doc,      // .pdf .docx
 }
 
 pub fn get_file_type(path: &Path) -> Option<FileType> {
-    // Firsly, check on DataCode files (only code and data)
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .unwrap_or_default();
+
+    // Check for Documents
+    if ext == "pdf" || ext == "docx" {
+        return Some(FileType::Doc);
+    }
+
+    // Check on DataCode files (only code and data)
     let datacode_extensions = [
         "rs", "py", "js", "ts", "go", "c", "cpp", "h", "hpp", "cs", "java", "json", "yaml", "toml",
         "xml", "csv", "sh", "bat",
     ];
 
-    let is_datacode = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| ext.to_lowercase())
-        .is_some_and(|ext| datacode_extensions.contains(&ext.as_str()));
-
-    if is_datacode {
+    if datacode_extensions.contains(&ext.as_str()) {
         return Some(FileType::DataCode);
     }
 
