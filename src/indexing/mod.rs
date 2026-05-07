@@ -93,6 +93,7 @@ pub fn run(
     Ok((indexed, skipped))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn embed_and_store(
     engine: &mut AiEngine,
     db: &VectorDb,

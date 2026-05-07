@@ -20,8 +20,8 @@ pub fn run(
     let records: Vec<_> = records
         .into_iter()
         .filter(|r| {
-            let ext_match = extension_filter.map_or(true, |ext| r.extension == ext);
-            let since_match = since_filter.map_or(true, |since| r.mtime >= since);
+            let ext_match = extension_filter.is_none_or(|ext| r.extension == ext);
+            let since_match = since_filter.is_none_or(|since| r.mtime >= since);
             ext_match && since_match
         })
         .collect();
