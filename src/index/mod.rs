@@ -1,8 +1,8 @@
 use crate::index::schema::IndexSchema;
 use anyhow::Result;
 use std::path::Path;
-use tantivy::query::QueryParser;
 use tantivy::Index;
+use tantivy::query::QueryParser;
 
 pub mod schema;
 
@@ -88,8 +88,10 @@ pub fn search_bm25(
         text_query
     };
 
-    let top_docs =
-        searcher.search(&final_query, &tantivy::collector::TopDocs::with_limit(limit))?;
+    let top_docs = searcher.search(
+        &final_query,
+        &tantivy::collector::TopDocs::with_limit(limit),
+    )?;
 
     let mut results = Vec::new();
     for (_score, doc_address) in top_docs {

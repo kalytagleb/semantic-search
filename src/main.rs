@@ -96,7 +96,9 @@ fn main() -> Result<()> {
             println!();
             println!("Options for search:");
             println!("  --ext <extension>               filter by extension (e.g., --ext rs)");
-            println!("  --since <YYYY-MM-DD>            filter by modification date (e.g., 2024-01-01)");
+            println!(
+                "  --since <YYYY-MM-DD>            filter by modification date (e.g., 2024-01-01)"
+            );
             println!();
             println!("Examples:");
             println!("  semantic-search index ~/Documents");

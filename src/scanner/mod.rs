@@ -24,11 +24,21 @@ fn is_ignored(path: &Path) -> bool {
 
     // OS-specific system roots to ignore
     #[cfg(target_os = "windows")]
-    let system_roots = ["C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)"];
+    let system_roots = [
+        "C:\\Windows",
+        "C:\\Program Files",
+        "C:\\Program Files (x86)",
+    ];
 
     #[cfg(not(target_os = "windows"))]
     let system_roots = [
-        "/proc", "/sys", "/dev", "/run", "/tmp", "/var/lib", "/var/cache",
+        "/proc",
+        "/sys",
+        "/dev",
+        "/run",
+        "/tmp",
+        "/var/lib",
+        "/var/cache",
     ];
 
     if system_roots.iter().any(|root| path_str.starts_with(root)) {

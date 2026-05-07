@@ -27,7 +27,9 @@ pub fn run(
         .collect();
 
     if records.is_empty() {
-        println!("Index is empty (or no files match the specified filters). Run 'index <path>' first.");
+        println!(
+            "Index is empty (or no files match the specified filters). Run 'index <path>' first."
+        );
         return Ok(());
     }
 
