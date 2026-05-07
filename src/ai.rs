@@ -1,8 +1,6 @@
 use anyhow::Context;
 use fastembed::{InitOptions, TextEmbedding};
 
-pub const MODEL_ID: &str = "EmbeddingGemma300M";
-
 pub struct AiEngine {
     model: TextEmbedding,
 }

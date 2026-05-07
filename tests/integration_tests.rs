@@ -27,7 +27,7 @@ fn test_cosine_similarity_orthogonal_vectors() {
 
 #[test]
 fn test_vector_db_insert_and_load() {
-    let db_path = Path::new("/tmp/test_integration_vectors.db");
+    let db_path = Path::new("/tmp/test_integration_vectors_final.db");
     if db_path.exists() {
         std::fs::remove_file(db_path).ok();
     }
@@ -37,6 +37,8 @@ fn test_vector_db_insert_and_load() {
     let records = vec![
         VectorRecord {
             path: "docs/readme.md".to_string(),
+            extension: "md".to_string(),
+            mtime: 0,
             chunk_index: 0,
             chunk_text: "Hello world".to_string(),
             vector: vec![0.1, 0.2, 0.3],
@@ -44,6 +46,8 @@ fn test_vector_db_insert_and_load() {
         },
         VectorRecord {
             path: "src/main.rs".to_string(),
+            extension: "rs".to_string(),
+            mtime: 0,
             chunk_index: 0,
             chunk_text: "fn main() {}".to_string(),
             vector: vec![0.4, 0.5, 0.6],
@@ -65,7 +69,7 @@ fn test_vector_db_insert_and_load() {
 
 #[test]
 fn test_incremental_indexing_skips_unchanged_files() {
-    let db_path = Path::new("/tmp/test_integration_incremental.db");
+    let db_path = Path::new("/tmp/test_integration_incremental_final.db");
     if db_path.exists() {
         std::fs::remove_file(db_path).ok();
     }
@@ -74,6 +78,8 @@ fn test_incremental_indexing_skips_unchanged_files() {
 
     db.insert_chunk(&VectorRecord {
         path: "notes.txt".to_string(),
+        extension: "txt".to_string(),
+        mtime: 0,
         chunk_index: 0,
         chunk_text: "some notes".to_string(),
         vector: vec![0.1],

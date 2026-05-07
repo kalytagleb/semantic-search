@@ -1,49 +1,64 @@
 use crate::ai::AiEngine;
+use crate::extractor;
+use crate::extractor::chunker;
 use crate::index::IndexManager;
+use crate::scanner::filters::get_file_type;
 use crate::vector_db::{VectorDb, VectorRecord};
-use crate::{extractor, scanner};
+use anyhow::Result;
 use sha2::{Digest, Sha256};
-use std::path::Path;
 
 const BATCH_SIZE: usize = 16;
 
 pub fn run(
-    folder_path: &str,
-    db: &VectorDb,
     engine: &mut AiEngine,
-    bm25_dir: &Path,
-) -> anyhow::Result<()> {
-    println!("Scanning '{}'...", folder_path);
-    let files = scanner::scan_all(folder_path);
-    println!("Found {} files", files.len());
+    db: &VectorDb,
+    bm25: &IndexManager,
+    files: Vec<std::path::PathBuf>,
+) -> Result<(usize, usize)> {
+    let mut indexed = 0;
+    let mut skipped = 0;
 
-    if files.is_empty() {
-        println!("No files found.");
-        return Ok(());
-    }
+    for file_path in files {
+        let path_str = file_path.to_string_lossy().to_string();
+        let file_name = file_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
-    let mut bm25 = IndexManager::new(bm25_dir)?;
-    let mut indexed = 0usize;
-    let mut skipped = 0usize;
+        let extension = file_path
+            .extension()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
-    for file_path in &files {
-        let content = match extractor::text::read(file_path) {
+        let mtime = file_path
+            .metadata()
+            .and_then(|m| m.modified())
+            .map(|t| {
+                t.duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0)
+            })
+            .unwrap_or(0);
+
+        let content = match extractor::extract_text(&file_path) {
             Ok(c) => c,
-            Err(_) => {
+            Err(e) => {
+                eprintln!("Failed to extract text from {}: {}", path_str, e);
                 skipped += 1;
                 continue;
             }
         };
 
-        let hash = hash_content(&content);
-        let path_str = file_path.to_string_lossy().to_string();
+        let hash = format!("{:x}", Sha256::digest(content.as_bytes()));
 
         if !db.file_needs_reindex(&path_str, &hash)? {
             skipped += 1;
             continue;
         }
 
-        let file_type = match scanner::filters::get_file_type(file_path) {
+        let file_type = match get_file_type(&file_path) {
             Some(ft) => ft,
             None => {
                 skipped += 1;
@@ -51,52 +66,44 @@ pub fn run(
             }
         };
 
-        let raw_chunks = extractor::chunker::split(&content, &file_type);
-        if raw_chunks.is_empty() {
-            skipped += 1;
-            continue;
-        }
+        let raw_chunks = chunker::split(&content, &file_type);
 
-        let file_name = file_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
-        // Remove stale data from both stores
+        // Delete old chunks before re-indexing
         db.delete_file_chunks(&path_str)?;
         bm25.delete_file(&path_str);
 
-        // Index into BM25 (original text chunks, no prefix)
-        bm25.add_chunks(&path_str, &file_name, &raw_chunks)?;
+        // Index into BM25
+        bm25.add_chunks(&path_str, &extension, &file_name, &raw_chunks)?;
 
-        // Index into vector store (with passage prefix for better semantic quality)
-        embed_and_store(engine, db, &path_str, &hash, &file_name, &raw_chunks)?;
+        // Index into vector store
+        embed_and_store(
+            engine,
+            db,
+            &path_str,
+            &extension,
+            mtime,
+            &hash,
+            &file_name,
+            &raw_chunks,
+        )?;
 
         indexed += 1;
     }
 
-    bm25.commit()?;
-
-    println!(
-        "Done. Indexed: {}, Skipped (unchanged/unreadable): {}",
-        indexed, skipped
-    );
-    println!("Total chunks in index: {}", db.chunk_count()?);
-
-    Ok(())
+    Ok((indexed, skipped))
 }
 
 fn embed_and_store(
     engine: &mut AiEngine,
     db: &VectorDb,
     path: &str,
+    extension: &str,
+    mtime: i64,
     hash: &str,
     file_name: &str,
     raw_chunks: &[String],
 ) -> anyhow::Result<()> {
     for (batch_i, batch) in raw_chunks.chunks(BATCH_SIZE).enumerate() {
-        // Embed with passage prefix + filename for better semantic quality
         let to_embed: Vec<String> = batch
             .iter()
             .map(|c| format!("passage: File: {}.\n{}", file_name, c))
@@ -108,6 +115,8 @@ fn embed_and_store(
         for (i, (raw_chunk, vector)) in batch.iter().zip(vectors).enumerate() {
             db.insert_chunk(&VectorRecord {
                 path: path.to_string(),
+                extension: extension.to_string(),
+                mtime,
                 content_hash: hash.to_string(),
                 chunk_index: batch_i * BATCH_SIZE + i,
                 chunk_text: raw_chunk.clone(),
@@ -116,10 +125,4 @@ fn embed_and_store(
         }
     }
     Ok(())
-}
-
-fn hash_content(content: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(content.as_bytes());
-    format!("{:x}", hasher.finalize())
 }

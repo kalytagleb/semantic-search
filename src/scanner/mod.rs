@@ -20,10 +20,18 @@ pub fn scan_all(root: &str) -> Vec<PathBuf> {
 }
 
 fn is_ignored(path: &Path) -> bool {
-    // System virtual filesystems — scanning these hangs or causes errors
-    let system_roots = ["/proc", "/sys", "/dev", "/run", "/boot", "/tmp"];
     let path_str = path.to_string_lossy();
-    if system_roots.iter().any(|r| path_str.starts_with(r)) {
+
+    // OS-specific system roots to ignore
+    #[cfg(target_os = "windows")]
+    let system_roots = ["C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)"];
+
+    #[cfg(not(target_os = "windows"))]
+    let system_roots = [
+        "/proc", "/sys", "/dev", "/run", "/tmp", "/var/lib", "/var/cache",
+    ];
+
+    if system_roots.iter().any(|root| path_str.starts_with(root)) {
         return true;
     }
 
