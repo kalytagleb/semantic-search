@@ -6,8 +6,18 @@ pub struct VectorDb {
     conn: Connection,
 }
 
+pub struct SearchResult {
+    pub path: String,
+    #[allow(dead_code)]
+    pub score: f32,
+    #[allow(dead_code)]
+    pub text: String,
+}
+
 pub struct VectorRecord {
     pub path: String,
+    pub extension: String,
+    pub mtime: i64,
     pub chunk_index: usize,
     pub chunk_text: String,
     pub vector: Vec<f32>,
@@ -37,17 +47,22 @@ impl VectorDb {
                 CREATE TABLE IF NOT EXISTS chunks (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
                     path         TEXT NOT NULL,
+                    extension    TEXT NOT NULL,
+                    mtime        INTEGER NOT NULL,
                     content_hash TEXT NOT NULL,
                     chunk_index  INTEGER NOT NULL,
                     chunk_text   TEXT NOT NULL,
                     vector       BLOB NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);",
+                CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);
+                CREATE INDEX IF NOT EXISTS idx_chunks_extension ON chunks(extension);
+                CREATE INDEX IF NOT EXISTS idx_chunks_mtime ON chunks(mtime);",
             )
             .context("Failed to initialize database schema")?;
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_model_id(&self) -> Result<Option<String>> {
         let result =
             self.conn
@@ -61,6 +76,7 @@ impl VectorDb {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_model_id(&self, model_id: &str) -> Result<()> {
         self.conn
             .execute(
@@ -71,6 +87,7 @@ impl VectorDb {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn clear_chunks(&self) -> Result<()> {
         self.conn
             .execute("DELETE FROM chunks", [])
@@ -102,10 +119,12 @@ impl VectorDb {
         let vector_bytes = vector_to_bytes(&record.vector);
         self.conn
             .execute(
-                "INSERT INTO chunks (path, content_hash, chunk_index, chunk_text, vector)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO chunks (path, extension, mtime, content_hash, chunk_index, chunk_text, vector)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     record.path,
+                    record.extension,
+                    record.mtime,
                     record.content_hash,
                     record.chunk_index as i64,
                     record.chunk_text,
@@ -119,17 +138,19 @@ impl VectorDb {
     pub fn load_all_vectors(&self) -> Result<Vec<VectorRecord>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT path, content_hash, chunk_index, chunk_text, vector FROM chunks")
+            .prepare("SELECT path, extension, mtime, content_hash, chunk_index, chunk_text, vector FROM chunks")
             .context("Failed to prepare query")?;
 
         let records: Vec<VectorRecord> = stmt
             .query_map([], |row| {
-                let vector_bytes: Vec<u8> = row.get(4)?;
+                let vector_bytes: Vec<u8> = row.get(6)?;
                 Ok(VectorRecord {
                     path: row.get(0)?,
-                    content_hash: row.get(1)?,
-                    chunk_index: row.get::<_, i64>(2)? as usize,
-                    chunk_text: row.get(3)?,
+                    extension: row.get(1)?,
+                    mtime: row.get(2)?,
+                    content_hash: row.get(3)?,
+                    chunk_index: row.get::<_, i64>(4)? as usize,
+                    chunk_text: row.get(5)?,
                     vector: bytes_to_vector(&vector_bytes),
                 })
             })
@@ -175,6 +196,8 @@ mod tests {
     fn make_record(path: &str, idx: usize, text: &str) -> VectorRecord {
         VectorRecord {
             path: path.to_string(),
+            extension: "txt".to_string(),
+            mtime: 1700000000,
             chunk_index: idx,
             chunk_text: text.to_string(),
             vector: vec![0.1, 0.2, 0.3],

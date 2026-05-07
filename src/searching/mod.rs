@@ -8,14 +8,28 @@ use std::path::Path;
 
 pub fn run(
     query: &str,
+    extension_filter: Option<&str>,
+    since_filter: Option<i64>,
     engine: &mut AiEngine,
     db: &VectorDb,
     bm25_dir: &Path,
 ) -> anyhow::Result<()> {
     let records = db.load_all_vectors()?;
 
+    // Apply filters early
+    let records: Vec<_> = records
+        .into_iter()
+        .filter(|r| {
+            let ext_match = extension_filter.is_none_or(|ext| r.extension == ext);
+            let since_match = since_filter.is_none_or(|since| r.mtime >= since);
+            ext_match && since_match
+        })
+        .collect();
+
     if records.is_empty() {
-        println!("Index is empty. Run 'index <path>' first.");
+        println!(
+            "Index is empty (or no files match the specified filters). Run 'index <path>' first."
+        );
         return Ok(());
     }
 
@@ -47,7 +61,7 @@ pub fn run(
     }
 
     // --- BM25 leg ---
-    let bm25_results = search_bm25(bm25_dir, query, 100)?;
+    let bm25_results = search_bm25(bm25_dir, query, extension_filter, 100)?;
 
     // --- Reciprocal Rank Fusion (k=60) ---
     let mut rrf_scores: HashMap<String, f32> = HashMap::new();

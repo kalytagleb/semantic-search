@@ -1,131 +1,112 @@
+use crate::index::schema::IndexSchema;
+use anyhow::Result;
+use std::path::Path;
+use tantivy::Index;
+use tantivy::query::QueryParser;
+
 pub mod schema;
 
-use std::collections::HashMap;
-use std::fs::create_dir_all;
-use std::path::Path;
-
-use tantivy::collector::TopDocs;
-use tantivy::query::QueryParser;
-use tantivy::{Index, IndexWriter, doc};
-
-use crate::index::schema::IndexSchema;
-
-pub struct SearchResult {
-    pub path: String,
-    #[allow(dead_code)]
-    pub title: String,
-    pub score: f32,
-}
-
 pub struct IndexManager {
-    schema: IndexSchema,
-    writer: IndexWriter,
+    pub schema: IndexSchema,
+    pub index: Index,
 }
 
 impl IndexManager {
-    pub fn new(index_dir: &Path) -> anyhow::Result<Self> {
-        create_dir_all(index_dir)?;
-
+    pub fn open_or_create(index_path: &Path) -> Result<Self> {
         let schema = IndexSchema::new();
+        if !index_path.exists() {
+            std::fs::create_dir_all(index_path)?;
+        }
         let index = Index::open_or_create(
-            tantivy::directory::MmapDirectory::open(index_dir)?,
+            tantivy::directory::MmapDirectory::open(index_path)?,
             schema.schema.clone(),
         )?;
 
-        let writer = index.writer(50_000_000)?;
-        Ok(IndexManager { schema, writer })
+        Ok(IndexManager { schema, index })
     }
 
-    pub fn add_chunks(&mut self, path: &str, title: &str, chunks: &[String]) -> anyhow::Result<()> {
-        for chunk in chunks {
-            self.writer.add_document(doc!(
-                self.schema.path  => path,
-                self.schema.title => title,
-                self.schema.body  => chunk.as_str()
-            ))?;
+    pub fn add_chunks(
+        &self,
+        path: &str,
+        extension: &str,
+        _title: &str,
+        chunks: &[String],
+    ) -> Result<()> {
+        let mut writer = self.index.writer(50_000_000)?;
+        let schema = &self.schema;
+
+        for (i, chunk) in chunks.iter().enumerate() {
+            let mut doc = tantivy::Document::new();
+            doc.add_text(schema.path, path);
+            doc.add_text(schema.extension, extension);
+            doc.add_u64(schema.chunk_index, i as u64);
+            doc.add_text(schema.text, chunk);
+            writer.add_document(doc)?;
         }
+
+        writer.commit()?;
         Ok(())
     }
 
-    pub fn delete_file(&mut self, path: &str) {
+    pub fn delete_file(&self, path: &str) {
+        let mut writer = self.index.writer(50_000_000).unwrap();
         let term = tantivy::Term::from_field_text(self.schema.path, path);
-        self.writer.delete_term(term);
-    }
-
-    pub fn commit(&mut self) -> anyhow::Result<()> {
-        self.writer.commit()?;
-        Ok(())
+        writer.delete_term(term);
+        writer.commit().unwrap();
     }
 }
 
-/// Opens the BM25 index read-only (no writer lock) and returns ranked results.
 pub fn search_bm25(
-    index_dir: &Path,
-    query_text: &str,
+    index_path: &Path,
+    query_str: &str,
+    extension_filter: Option<&str>,
     limit: usize,
-) -> anyhow::Result<Vec<SearchResult>> {
-    if !index_dir.exists() {
-        return Ok(vec![]);
-    }
-
+) -> Result<Vec<crate::vector_db::SearchResult>> {
     let schema_def = IndexSchema::new();
     let index = Index::open_or_create(
-        tantivy::directory::MmapDirectory::open(index_dir)?,
+        tantivy::directory::MmapDirectory::open(index_path)?,
         schema_def.schema.clone(),
     )?;
 
-    let reader = index
-        .reader_builder()
-        .reload_policy(tantivy::ReloadPolicy::OnCommit)
-        .try_into()?;
+    let reader = index.reader()?;
     let searcher = reader.searcher();
 
-    let query_parser = QueryParser::for_index(&index, vec![schema_def.title, schema_def.body]);
+    let query_parser = QueryParser::for_index(&index, vec![schema_def.text]);
+    let text_query = query_parser.parse_query(query_str)?;
 
-    let query = match query_parser.parse_query(query_text) {
-        Ok(q) => q,
-        Err(_) => return Ok(vec![]),
+    let final_query: Box<dyn tantivy::query::Query> = if let Some(ext) = extension_filter {
+        let ext_term = tantivy::Term::from_field_text(schema_def.extension, ext);
+        let ext_query = tantivy::query::TermQuery::new(
+            ext_term,
+            tantivy::schema::IndexRecordOption::WithFreqsAndPositions,
+        );
+        Box::new(tantivy::query::BooleanQuery::new(vec![
+            (tantivy::query::Occur::Must, Box::new(text_query)),
+            (tantivy::query::Occur::Must, Box::new(ext_query)),
+        ]))
+    } else {
+        text_query
     };
 
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit * 5))?;
+    let top_docs = searcher.search(
+        &final_query,
+        &tantivy::collector::TopDocs::with_limit(limit),
+    )?;
 
-    // Deduplicate by path, keep best score
-    let mut seen: HashMap<String, (String, f32)> = HashMap::new();
-    for (score, doc_addr) in top_docs {
-        let retrieved = searcher.doc(doc_addr)?;
-
-        let path = retrieved
+    let mut results = Vec::new();
+    for (_score, doc_address) in top_docs {
+        let retrieved_doc = searcher.doc(doc_address)?;
+        let path = retrieved_doc
             .get_first(schema_def.path)
-            .and_then(|v| match v {
-                tantivy::schema::Value::Str(s) => Some(s.as_str().to_string()),
-                _ => None,
-            })
-            .unwrap_or_default();
-
-        let title = retrieved
-            .get_first(schema_def.title)
-            .and_then(|v| match v {
-                tantivy::schema::Value::Str(s) => Some(s.as_str().to_string()),
-                _ => None,
-            })
-            .unwrap_or_default();
-
-        if !path.is_empty() {
-            seen.entry(path).or_insert((title, score));
-        }
+            .and_then(|v| v.as_text())
+            .unwrap_or("")
+            .to_string();
+        results.push(crate::vector_db::SearchResult {
+            path,
+            score: 1.0,
+            text: "".to_string(),
+        });
     }
-
-    let mut results: Vec<SearchResult> = seen
-        .into_iter()
-        .map(|(path, (title, score))| SearchResult { path, title, score })
-        .collect();
-
-    results.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    results.truncate(limit);
 
     Ok(results)
 }

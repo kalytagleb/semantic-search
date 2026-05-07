@@ -3,8 +3,9 @@ use tantivy::schema::{Field, STORED, STRING, Schema, TEXT};
 pub struct IndexSchema {
     pub schema: Schema,
     pub path: Field,
-    pub title: Field,
-    pub body: Field,
+    pub extension: Field,
+    pub chunk_index: Field,
+    pub text: Field,
 }
 
 impl Default for IndexSchema {
@@ -14,19 +15,19 @@ impl Default for IndexSchema {
 }
 
 impl IndexSchema {
-    pub fn new() -> IndexSchema {
+    pub fn new() -> Self {
         let mut builder = Schema::builder();
-
-        // STRING = indexed but not tokenized (exact match, needed for deletion by path)
         let path = builder.add_text_field("path", STRING | STORED);
-        let title = builder.add_text_field("title", TEXT | STORED);
-        let body = builder.add_text_field("body", TEXT | STORED);
+        let extension = builder.add_text_field("extension", STRING | STORED);
+        let chunk_index = builder.add_u64_field("chunk_index", STORED);
+        let text = builder.add_text_field("text", TEXT | STORED);
 
-        IndexSchema {
+        Self {
             schema: builder.build(),
             path,
-            title,
-            body,
+            extension,
+            chunk_index,
+            text,
         }
     }
 }
