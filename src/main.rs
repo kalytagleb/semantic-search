@@ -8,11 +8,39 @@ mod searching;
 mod vector_db;
 
 use anyhow::{Context, Result};
+use chrono::TimeZone;
+use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
-use std::env;
+
+#[derive(Parser)]
+#[command(name = "semantic-search")]
+#[command(about = "Local Semantic Search Engine", long_about=None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Index {
+        path: Option<String>,
+    },
+
+    Search {
+        query: String,
+
+        #[arg(long)]
+        ext: Option<String>,
+
+        #[arg(long)]
+        since: Option<String>,
+    },
+
+    Clean,
+}
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
     let proj_dirs = ProjectDirs::from("", "", "semantic-search")
         .context("Could not determine project directories")?;
@@ -21,52 +49,39 @@ fn main() -> Result<()> {
 
     let db = vector_db::VectorDb::open(&db_path)?;
 
-    match args.get(1).map(|s| s.as_str()) {
-        Some("index") => {
-            // Default path logic
+    match cli.command {
+        Commands::Index { path } => {
             #[cfg(target_os = "windows")]
             let default_path = "C:\\Users";
             #[cfg(not(target_os = "windows"))]
             let default_path = "/";
 
-            let path = args.get(2).map(|s| s.as_str()).unwrap_or(default_path);
-            println!("Scanning '{}'...", path);
+            let path_to_scan = path.as_deref().unwrap_or(default_path);
+            println!("Scanning '{}'...", path_to_scan);
 
-            let files = scanner::scan_all(path);
+            let files = scanner::scan_all(path_to_scan);
             println!("Found {} files", files.len());
 
             let mut engine = ai::AiEngine::new()?;
             let bm25 = index::IndexManager::open_or_create(&bm25_dir)?;
 
             let (indexed, skipped) = indexing::run(&mut engine, &db, &bm25, files)?;
-            println!(
-                "Done. Indexed: {}, Skipped (unchanged/unreadable): {}",
-                indexed, skipped
-            );
+            println!("Done. Indexed: {}, Skipped: {}", indexed, skipped);
             println!("Total chunks in index: {}", db.chunk_count()?);
         }
 
-        Some("search") => {
-            let query = args
-                .get(2)
-                .context("Usage: semantic-search search <query>")?;
-
-            let extension_filter = args
-                .windows(2)
-                .find(|w| w[0] == "--ext")
-                .map(|w| w[1].as_str());
-
-            let since_filter = args
-                .windows(2)
-                .find(|w| w[0] == "--since")
-                .and_then(|w| chrono::NaiveDate::parse_from_str(&w[1], "%Y-%m-%d").ok())
-                .and_then(|d: chrono::NaiveDate| d.and_hms_opt(0, 0, 0))
-                .map(|dt| chrono::TimeZone::from_utc_datetime(&chrono::Utc, &dt).timestamp());
+        Commands::Search { query, ext, since } => {
+            let since_filter = since.and_then(|s| {
+                chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                    .ok()
+                    .and_then(|d| d.and_hms_opt(0, 0, 0))
+                    .map(|dt| chrono::Utc.from_utc_datetime(&dt).timestamp())
+            });
 
             let mut engine = ai::AiEngine::new()?;
             searching::run(
-                query,
-                extension_filter,
+                &query,
+                ext.as_deref(),
                 since_filter,
                 &mut engine,
                 &db,
@@ -74,43 +89,12 @@ fn main() -> Result<()> {
             )?;
         }
 
-        Some("clean") => {
+        Commands::Clean => {
             let data_dir = proj_dirs.data_dir();
             if data_dir.exists() {
                 std::fs::remove_dir_all(data_dir).context("Failed to clear index directory")?;
             }
             println!("Index cleared.");
-        }
-
-        _ => {
-            println!("Local Semantic Search Engine");
-            println!();
-            println!("Usage:");
-            #[cfg(target_os = "windows")]
-            println!("  semantic-search index [path]    index files (default: C:\\Users)");
-            #[cfg(not(target_os = "windows"))]
-            println!("  semantic-search index [path]    index files (default: /)");
-
-            println!("  semantic-search search <query>  search the index");
-            println!("  semantic-search clean           clear the index");
-            println!();
-            println!("Options for search:");
-            println!("  --ext <extension>               filter by extension (e.g., --ext rs)");
-            println!(
-                "  --since <YYYY-MM-DD>            filter by modification date (e.g., 2024-01-01)"
-            );
-            println!();
-            println!("Examples:");
-            println!("  semantic-search index ~/Documents");
-            #[cfg(target_os = "windows")]
-            println!("  semantic-search index C:\\Users");
-            #[cfg(not(target_os = "windows"))]
-            println!("  semantic-search index /");
-            println!("  semantic-search search \"snake game in python\"");
-            println!("  semantic-search search \"bug report\" --ext rs --since 2024-05-01");
-            println!("  semantic-search clean");
-            println!();
-            println!("Index stored at: {}", db_path.display());
         }
     }
 
