@@ -1,6 +1,6 @@
 pub mod filters;
 
-use ignore::{WalkBuilder};
+use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 use filters::{is_indexable, is_size_ok};

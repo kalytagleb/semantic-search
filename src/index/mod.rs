@@ -35,9 +35,12 @@ impl IndexManager {
         let mut writer = self.index.writer(50_000_000)?;
         let schema = &self.schema;
 
+        let path_tokens = path.replace(['/', '\\', '.'], " ");
+
         for (i, chunk) in chunks.iter().enumerate() {
             let mut doc = tantivy::Document::new();
             doc.add_text(schema.path, path);
+            doc.add_text(schema.path_tokens, &path_tokens);
             doc.add_text(schema.extension, extension);
             doc.add_u64(schema.chunk_index, i as u64);
             doc.add_text(schema.text, chunk);
@@ -71,7 +74,8 @@ pub fn search_bm25(
     let reader = index.reader()?;
     let searcher = reader.searcher();
 
-    let query_parser = QueryParser::for_index(&index, vec![schema_def.text]);
+    let query_parser =
+        QueryParser::for_index(&index, vec![schema_def.text, schema_def.path_tokens]);
     let text_query = query_parser.parse_query(query_str)?;
 
     let final_query: Box<dyn tantivy::query::Query> = if let Some(ext) = extension_filter {
