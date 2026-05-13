@@ -14,12 +14,15 @@ pub fn run(
     db: &VectorDb,
     bm25: &IndexManager,
     files: Vec<std::path::PathBuf>,
+    progress_cb: impl Fn(usize, usize, &str),
 ) -> Result<(usize, usize)> {
     let mut indexed = 0;
     let mut skipped = 0;
+    let total = files.len();
 
-    for file_path in files {
+    for (i, file_path) in files.into_iter().enumerate() {
         let path_str = file_path.to_string_lossy().to_string();
+        progress_cb(i, total, &path_str);
         let file_name = file_path
             .file_name()
             .unwrap_or_default()

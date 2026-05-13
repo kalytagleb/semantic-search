@@ -7,8 +7,6 @@ pub struct AiEngine {
 
 impl AiEngine {
     pub fn new() -> Result<Self, anyhow::Error> {
-        println!("Loading AI model, this may take a moment on first run.");
-
         let options = InitOptions::new(fastembed::EmbeddingModel::EmbeddingGemma300M);
         let model = fastembed::TextEmbedding::try_new(options)?;
         Ok(AiEngine { model })
