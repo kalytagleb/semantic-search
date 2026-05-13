@@ -61,7 +61,7 @@ pub fn run(
     }
 
     // --- BM25 leg ---
-    let bm25_results = search_bm25(bm25_dir, query, extension_filter, 100)?;
+    let bm25_results = search_bm25(bm25_dir, query, extension_filter, since_filter, 100)?;
 
     // --- Reciprocal Rank Fusion (k=60) ---
     let mut rrf_scores: HashMap<String, f32> = HashMap::new();

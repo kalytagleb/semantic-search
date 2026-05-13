@@ -29,6 +29,7 @@ impl IndexManager {
         &self,
         path: &str,
         extension: &str,
+        mtime: i64,
         _title: &str,
         chunks: &[String],
     ) -> Result<()> {
@@ -42,6 +43,7 @@ impl IndexManager {
             doc.add_text(schema.path, path);
             doc.add_text(schema.path_tokens, &path_tokens);
             doc.add_text(schema.extension, extension);
+            doc.add_u64(schema.last_modified, mtime as u64);
             doc.add_u64(schema.chunk_index, i as u64);
             doc.add_text(schema.text, chunk);
             writer.add_document(doc)?;
@@ -63,6 +65,7 @@ pub fn search_bm25(
     index_path: &Path,
     query_str: &str,
     extension_filter: Option<&str>,
+    since_filter: Option<i64>,
     limit: usize,
 ) -> Result<Vec<crate::vector_db::SearchResult>> {
     let schema_def = IndexSchema::new();
@@ -78,19 +81,28 @@ pub fn search_bm25(
         QueryParser::for_index(&index, vec![schema_def.text, schema_def.path_tokens]);
     let text_query = query_parser.parse_query(query_str)?;
 
-    let final_query: Box<dyn tantivy::query::Query> = if let Some(ext) = extension_filter {
+    let mut final_query_parts: Vec<(tantivy::query::Occur, Box<dyn tantivy::query::Query>)> =
+        vec![(tantivy::query::Occur::Must, text_query)];
+
+    if let Some(ext) = extension_filter {
         let ext_term = tantivy::Term::from_field_text(schema_def.extension, ext);
-        let ext_query = tantivy::query::TermQuery::new(
-            ext_term,
-            tantivy::schema::IndexRecordOption::WithFreqsAndPositions,
+        let ext_query =
+            tantivy::query::TermQuery::new(ext_term, tantivy::schema::IndexRecordOption::Basic);
+        final_query_parts.push((tantivy::query::Occur::Must, Box::new(ext_query)));
+    }
+
+    if let Some(since) = since_filter {
+        let date_query = tantivy::query::RangeQuery::new_u64(
+            schema_def
+                .schema
+                .get_field_name(schema_def.last_modified)
+                .to_string(),
+            (since as u64)..u64::MAX,
         );
-        Box::new(tantivy::query::BooleanQuery::new(vec![
-            (tantivy::query::Occur::Must, Box::new(text_query)),
-            (tantivy::query::Occur::Must, Box::new(ext_query)),
-        ]))
-    } else {
-        text_query
-    };
+        final_query_parts.push((tantivy::query::Occur::Must, Box::new(date_query)));
+    }
+
+    let final_query = tantivy::query::BooleanQuery::new(final_query_parts);
 
     let top_docs = searcher.search(
         &final_query,

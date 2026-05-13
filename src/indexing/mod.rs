@@ -73,7 +73,7 @@ pub fn run(
         bm25.delete_file(&path_str);
 
         // Index into BM25
-        bm25.add_chunks(&path_str, &extension, &file_name, &raw_chunks)?;
+        bm25.add_chunks(&path_str, &extension, mtime, &file_name, &raw_chunks)?;
 
         // Index into vector store
         embed_and_store(
