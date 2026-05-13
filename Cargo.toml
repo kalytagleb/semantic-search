@@ -20,6 +20,7 @@ pdf-extract = "0.7"
 docx-rs = "0.4"
 chrono = "0.4.44"
 ignore = "0.4"
+infer = "0.16"
 
 [dependencies.zstd-sys]
 version = "=2.0.9"

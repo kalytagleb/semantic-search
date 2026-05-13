@@ -6,33 +6,52 @@ pub enum FileType {
     Doc,      // .pdf .docx
 }
 
+fn detect_by_content(path: &Path) -> Option<Option<FileType>> {
+    let mut file = File::open(path).ok()?;
+    let mut buffer = [0; 16];
+
+    let n = file.read(&mut buffer).ok()?;
+    if n == 0 {
+        return None;
+    }
+
+    let kind = infer::get(&buffer[..n])?;
+
+    match kind.mime_type() {
+        "application/pdf"
+        | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => {
+            Some(Some(FileType::Doc))
+        }
+        "application/x-executable" | "application/zip" | "application/x-rar-compressed" => {
+            Some(None)
+        }
+        _ => None,
+    }
+}
+
 pub fn get_file_type(path: &Path) -> Option<FileType> {
+    if let Some(content_res) = detect_by_content(path) {
+        return content_res;
+    }
+
     let ext = path
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| ext.to_lowercase())
         .unwrap_or_default();
 
-    // Check for Documents
-    if ext == "pdf" || ext == "docx" {
-        return Some(FileType::Doc);
+    match ext.as_str() {
+        "pdf" | "docx" => Some(FileType::Doc),
+        "rs" | "py" | "js" | "ts" | "go" | "c" | "cpp" | "h" | "hpp" | "cs" | "java" | "json"
+        | "yaml" | "toml" | "xml" | "csv" | "sh" | "bat" => Some(FileType::DataCode),
+        _ => {
+            if is_not_binary(path) {
+                Some(FileType::Text)
+            } else {
+                None
+            }
+        }
     }
-
-    // Check on DataCode files (only code and data)
-    let datacode_extensions = [
-        "rs", "py", "js", "ts", "go", "c", "cpp", "h", "hpp", "cs", "java", "json", "yaml", "toml",
-        "xml", "csv", "sh", "bat",
-    ];
-
-    if datacode_extensions.contains(&ext.as_str()) {
-        return Some(FileType::DataCode);
-    }
-
-    if is_not_binary(path) {
-        return Some(FileType::Text);
-    }
-
-    None
 }
 
 // Defend Extractor from unsuitable formats
