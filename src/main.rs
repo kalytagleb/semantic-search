@@ -48,9 +48,23 @@ fn main() -> Result<()> {
     let bm25_dir = proj_dirs.data_dir().join("bm25_index");
 
     let db = vector_db::VectorDb::open(&db_path)?;
+    let current_model_id = "fastembed/Gemma-300M";
 
     match cli.command {
         Commands::Index { path } => {
+            if let Some(stored_id) = db.get_model_id()? {
+                if stored_id != current_model_id {
+                    anyhow::bail!(
+                        "Database was created with model '{}', but you are using '{}'. \
+                        Please run 'clean' first.",
+                        stored_id,
+                        current_model_id
+                    );
+                }
+            } else {
+                db.set_model_id(current_model_id)?;
+            }
+
             #[cfg(target_os = "windows")]
             let default_path = "C:\\Users";
             #[cfg(not(target_os = "windows"))]
@@ -71,6 +85,15 @@ fn main() -> Result<()> {
         }
 
         Commands::Search { query, ext, since } => {
+            if let Some(stored_id) = db.get_model_id()?.filter(|id| id != current_model_id) {
+                anyhow::bail!(
+                    "Search error: The index is incompatible. \
+                    Base: '{}', Current model: '{}'.",
+                    stored_id,
+                    current_model_id
+                );
+            }
+
             let since_filter = since.and_then(|s| {
                 chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
                     .ok()
