@@ -1,0 +1,63 @@
+Date : 2026-05-17 23:28:08
+Directory : /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin
+Total : 23 files,  1723 codes, 16 comments, 355 blanks, all 2094 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Rust     |         18 |      1,497 |         15 |        266 |      1,778 |
+| Markdown |          3 |        153 |          0 |         79 |        232 |
+| Python   |          1 |         50 |          1 |          4 |         55 |
+| YAML     |          1 |         23 |          0 |          6 |         29 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                        | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                           |         23 |      1,723 |         16 |        355 |      2,094 |
+| . (Files)                                                                                   |          3 |        153 |          0 |         79 |        232 |
+| .github                                                                                     |          1 |         23 |          0 |          6 |         29 |
+| .github/workflows                                                                           |          1 |         23 |          0 |          6 |         29 |
+| magic_test                                                                                  |          1 |         50 |          1 |          4 |         55 |
+| src                                                                                         |         17 |      1,418 |         12 |        249 |      1,679 |
+| src (Files)                                                                                 |          5 |        540 |          1 |         94 |        635 |
+| src/extractor                                                                               |          3 |        113 |          3 |         23 |        139 |
+| src/index                                                                                   |          2 |        144 |          0 |         25 |        169 |
+| src/indexing                                                                                |          1 |        111 |          3 |         19 |        133 |
+| src/scanner                                                                                 |          2 |        182 |          5 |         40 |        227 |
+| src/searching                                                                               |          1 |        102 |          0 |         18 |        120 |
+| src/tui                                                                                     |          3 |        226 |          0 |         30 |        256 |
+| tests                                                                                       |          1 |         79 |          3 |         17 |         99 |
++---------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                                    | language | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/.github/workflows/ci.yml   | YAML     |         23 |          0 |          6 |         29 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/PROPOSAL.md                | Markdown |         59 |          0 |         13 |         72 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/README.md                  | Markdown |         54 |          0 |         26 |         80 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/REPORT.md                  | Markdown |         40 |          0 |         40 |         80 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/magic_test/script.py       | Python   |         50 |          1 |          4 |         55 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/ai.rs                  | Rust     |         35 |          0 |          6 |         41 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/extractor/chunker.rs   | Rust     |         60 |          2 |         15 |         77 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/extractor/mod.rs       | Rust     |          6 |          0 |          3 |          9 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/extractor/text.rs      | Rust     |         47 |          1 |          5 |         53 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/index/mod.rs           | Rust     |        109 |          0 |         20 |        129 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/index/schema.rs        | Rust     |         35 |          0 |          5 |         40 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/indexing/mod.rs        | Rust     |        111 |          3 |         19 |        133 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/lib.rs                 | Rust     |          8 |          0 |          1 |          9 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/main.rs                | Rust     |        183 |          1 |         36 |        220 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/math.rs                | Rust     |         77 |          0 |         13 |         90 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/scanner/filters.rs     | Rust     |        115 |          5 |         25 |        145 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/scanner/mod.rs         | Rust     |         67 |          0 |         15 |         82 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/searching/mod.rs       | Rust     |        102 |          0 |         18 |        120 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/tui/events.rs          | Rust     |         11 |          0 |          3 |         14 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/tui/mod.rs             | Rust     |        143 |          0 |         16 |        159 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/tui/ui.rs              | Rust     |         72 |          0 |         11 |         83 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/src/vector_db.rs           | Rust     |        237 |          0 |         38 |        275 |
+| /home/glebkalyta/Документы/rust_projects/rust-project-52_teamvin/tests/integration_tests.rs | Rust     |         79 |          3 |         17 |         99 |
+| Total                                                                                       |          |      1,723 |         16 |        355 |      2,094 |
++---------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
